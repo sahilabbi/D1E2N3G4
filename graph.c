@@ -41,6 +41,14 @@ static void increment_cursor(int * i, int * j){
     }
 }
 
+static bool is_regular(int * degree){
+	int i;
+	for(i = 0; i < N; i++){
+		if(degree[i] != K) return false;
+	}
+	return true;
+}
+
 bool increment_graph(graph_t * graph){
     int degree[N];
     int i,j;
@@ -53,11 +61,19 @@ bool increment_graph(graph_t * graph){
     }
     i = N-2;
     j = N-1;
-    while(graph->adj[i][j] == 1){
-	graph->adj[i][j] = 0;
-	graph->adj[j][i] = 0;
-	increment_cursor(&i,&j);
-	if(i == 0) return true;
-    }
+	while(!is_regular(&degree[0])){
+		while(graph->adj[i][j] == 1){
+			graph->adj[i][j] = 0;
+			graph->adj[j][i] = 0;
+			degree[i]--;
+			degree[j]--;
+			increment_cursor(&i,&j);
+			if(i == 0) return true;
+		}
+		graph->adj[i][j] = 1;
+		graph->adj[i][j] = 1;
+		degree[i]++;
+		degree[j]++;
+	}
     return false;
 }
