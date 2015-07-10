@@ -4,7 +4,7 @@
 
 //The generator node generates the graphs
 //and sends them to other nodes to be checked.
-//The generater sends out every regular graph,
+//The generator sends out every regular graph,
 //possibly repeats since isomorphism checking is hard
 #define GENERATOR_RANK 0
 //the manager node manages which threads are doing what 
