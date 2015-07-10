@@ -3,12 +3,15 @@ CFLAGS += -Wall -O3 -I .
 NAME = exhuastive_search
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-N ?= 64
-K ?= 6
+N ?= 8
+K ?= 3
 
 CFLAGS += -DN=$(N) -DK=$(K) -g
 
 all: $(NAME)
+
+increment_test: graph.c graph.h
+	gcc $(CFLAGS) -o $(NAME) -DINCREMENT_TEST graph.c
 
 clean:
 	rm -f $(NAME) distance_test swap_test $(OBJECTS)

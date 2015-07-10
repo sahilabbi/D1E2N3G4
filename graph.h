@@ -4,12 +4,10 @@
 
 #include <stdbool.h>
 
-#define N 32
-#define K 5
 
 typedef struct
 {
-	bool adj[N][N];
+	int adj[N][N];
 } graph_t;
 
 void copy_graph(graph_t * dst, graph_t * src);
@@ -18,7 +16,9 @@ void copy_graph(graph_t * dst, graph_t * src);
 //and therefore cannot be incremented
 //returns false otherwise
 bool increment_graph(graph_t * graph);
-bool is_regular(graph_t * graph);
+bool is_regular(int * degree);
+
+graph_t * initial_graph();
 
 
 #endif
