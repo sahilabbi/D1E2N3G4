@@ -13,6 +13,9 @@ all: $(NAME)
 increment_test: graph.c graph.h
 	gcc $(CFLAGS) -o $(NAME) -DINCREMENT_TEST graph.c
 
+matrix_test: isomorphism.c isomorphism.h graph.h
+	gcc $(CFLAGS) -o $(NAME) -DMATRIX_TEST isomorphism.c
+
 clean:
 	rm -f $(NAME) distance_test swap_test $(OBJECTS)
 
