@@ -10,8 +10,6 @@
 //the manager node manages which threads are doing what 
 //and also tells them where to send their data along
 #define MANAGER_RANK 1
-#define DISTANCE_CALCULATOR_RANK 2
-#define ISO_CHECKER_RANK 3
 
 //each of these will perform the actions of their respective node(s)
 void generator();
