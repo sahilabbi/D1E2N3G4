@@ -15,7 +15,6 @@
 void generator();
 void manager();
 void distance_calculator();
-void prelim_iso_checker();
-void final_iso_checker();
+void iso_checker();
 
 #endif
