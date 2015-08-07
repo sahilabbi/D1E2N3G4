@@ -61,7 +61,7 @@ matrix * householder(matrix * m);
 
 typedef struct
 {
-    matrix * diagnol;
+    float * diagonal;
     matrix * eigenvectors;
 } diagnolization;
 

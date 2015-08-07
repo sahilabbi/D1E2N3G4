@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define EPSILON 0.001
+#define EPSILON 0.00001
 
 bool float_equals(float a, float b){
     float diff = a - b;
@@ -41,10 +41,18 @@ void delete_vector(vector * v){
 vector_space * create_vector_space(int num_vectors, int size){
     vector_space * ret = (vector_space *) malloc(sizeof(vector_space));
     ret->vectors = (vector **) malloc(num_vectors * sizeof(vector *));
+    ret->num_vectors = num_vectors;
     int i;
     for(i = 0; i < num_vectors; i++) ret->vectors[i] = create_vector(size);
     ret->size = size;
     return ret;
+}
+
+void delete_vector_space(vector_space * vspace){
+    int i;
+    for(i = 0; i < vspace->num_vectors; i++) delete_vector(vspace->vectors[i]);
+    free(vspace->vectors);
+    free(vspace);
 }
 
 matrix * matrix_transpose(matrix * m){
@@ -110,7 +118,11 @@ void normalize(vector * v){
     float length = sqrt(dot_product(v,v));
     float correction = 1 / length;
     int i;
+    //printf("Vector:\n");
+    //print_vector(v);
     for(i = 0; i < v->size; i++) v->values[i] *= correction;
+    //printf("Normalized\n");
+    //print_vector(v);
 }
 
 vector * project_vector(vector * v, vector_space * vspace, bool normalized){
@@ -219,6 +231,10 @@ matrix * row_reduced_echelon_form(matrix * m){
 	print_matrix(ret);
 	printf("\n");*/
     }
+    for(i = 0; i < ret->size * ret->size; i++){
+	if(float_equals(ret->values[i], 0))
+	    ret->values[i] = 0;
+    }
     return ret;
 }
 
@@ -246,7 +262,7 @@ matrix * householder(matrix * m){
 	float r = 0.5 * (alpha * alpha - ret->values[(i+1) * ret->size + i] * alpha);
 	r = sqrt(r);
 	r = 1 / (2*r);
-	//printf("r: %f\n", r);
+	//printf("corrr: %f\n", r);
 	vector * v = create_vector(ret->size);
 	v->values[i+1] = ret->values[(i+1) * ret->size + i] - alpha;
 	v->values[i+1] *= r;
@@ -260,17 +276,17 @@ matrix * householder(matrix * m){
 		pos++;
 	    }
 	}
-	//printf("Householder matrix:\n");
-	//print_matrix(p);
-	//printf("\n");
+	printf("Householder matrix:\n");
+	print_matrix(p);
+	printf("\n");
 	matrix * temp1 = matrix_matrix_mult(p, ret);
 	matrix * temp2 = matrix_matrix_mult(temp1, p);
 	delete_matrix(ret);
 	delete_matrix(temp1);
 	ret = temp2;
-	//printf("A_k:\n");
-	//print_matrix(ret);
-	//printf("\n");
+	printf("A_k:\n");
+	print_matrix(ret);
+	printf("\n");
 
     }
     return ret;
@@ -278,63 +294,179 @@ matrix * householder(matrix * m){
 
 
 static void delete_diagnolization(diagnolization * d){
-    delete_matrix(d->diagnol);
+    free(d->diagonal);
     delete_matrix(d->eigenvectors);
     free(d);
 }
 
 #define SMALL_MATRIX_BOUNDARY 4
 
+static void orthagonalize(vector_space * vspace){
+    int i,j;
+    int temp = vspace->num_vectors;
+    normalize(vspace->vectors[0]);
+    for(i = 1; i < temp; i++){
+	vspace->num_vectors = i;
+	vector * diff = project_vector(vspace->vectors[i], vspace, true);
+	for(j = 0; j < vspace->size; j++){
+	    vspace->vectors[i]->values[j] -= diff->values[j];
+	}
+	delete_vector(diff);
+	normalize(vspace->vectors[i]);
+    }
+    vspace->num_vectors = temp;
+}
 
+static vector_space * get_nullspace(matrix * m){
+    printf("Matrix:\n");
+    print_matrix(m);
+    matrix * rref = row_reduced_echelon_form(m);
+    printf("RREF:\n");
+    print_matrix(rref);
+    //represents index of the first pivot in each row
+    //puts m->size if there is no pivot
+    int * pivots = (int *) malloc(m->size * sizeof(int));
+    //same as pivots, but reversing index/values
+    int i,j;
+    for(i = 0; i < m->size; i++){
+	pivots[i] = m->size;
+	for(j = i; j < m->size; j++){
+	    if(float_equals(rref->values[i * rref->size + j], 1)){
+		pivots[i] = j;
+		break;
+	    }
+	}
+    }
+    
+    int dimension = m->size;
+    for(i = 0; i < m->size; i++){
+	if(pivots[i] == m->size){
+	    dimension = m->size - i;
+	    break;
+	}
+    }
+    printf("Nullspace dimension: %d\n", dimension);
+    vector_space * ret = create_vector_space(dimension, m->size);
+    //contains the columns which do not have pivots in them
+    int * pivot_holes = (int *) malloc(dimension * sizeof(int));
+    //contains the row in which the pivot for the given column appears
+    int * pivot_reverse = (int *) malloc(m->size * sizeof(int));
+    for(i = 0; i < m->size; i++) pivot_reverse[i] = m->size;
+    int last = 0;
+    int k = 0;
+    for(i = 0; i < m->size; i++){
+	if(pivots[i] > last + 1){
+	    for(j = last + 1; j < pivots[i]; j++) pivot_holes[k++] = j;
+	}
+	pivot_reverse[pivots[i]] = i;
+    }
+    for(i = 0; i < ret->num_vectors; i++){
+	ret->vectors[i] = create_vector(ret->size);
+	ret->vectors[i]->values[pivot_holes[i]] = 1;
+	//iterate across the values in columnn i and balance
+	//them off with values in pivot columns to make the
+	//matrix-vector product 0
+	for(j = 0; j < rref->size; j++){
+	    ret->vectors[i]->values[pivot_reverse[j]] = -rref->values[j * rref->size + i];
+	}
+    }
+    free(pivots);
+    free(pivot_holes);
+    free(pivot_reverse);
+    delete_matrix(rref);
+    return ret;
+}
 
 static diagnolization * small_diagnolization(matrix * m){
     if(m->size > SMALL_MATRIX_BOUNDARY){
 	printf("Error: Matrix of size %d inputed to small_diagnolization.  The maximum size should be %d", m->size, SMALL_MATRIX_BOUNDARY);
-	return 0;
     }
     int i,j;
-    matrix * A = create_matrix(m->size);
-    int k = 0;
-    while(k++ < 100){
-	for(i = 0; i < m->size; i++)
-	    for(j = 0; j < m->size; j++)
-		A->values[i * A->size + j] = m->values[i * m->size + j];
-	vector ** columns = (vector **) malloc(m->size * sizeof(vector *));
+    matrix * A = householder(m);
+    bool done = false;
+    while(!done){
+	vector_space * columns = create_vector_space(m->size, m->size);
 	for(i = 0; i < m->size; i++){
-	    columns[i] = create_vector(m->size);
-	    for(j = 0; j < columns[i]->size; j++)
-		columns[i]->values[i] = m->values[j * m->size * i];
+	    for(j = 0; j < columns->size; j++)
+		columns->vectors[i]->values[j] = A->values[j * A->size + i];
 	}
-	for(i = 0; i < m->size; i++) normalize(columns[i]);
-	for(i = 1; i < m->size; i++){
-	    vector * diff = project_vector(columns[i], columns, i, true);
-	    for(j = 0; j < m->size; j++) columns[i]->values[j] -= diff->values[j];
-	    delete_vector(diff);
-	    normalize(columns[i]);
-	}
-	matrix * Q = create_matrix(m->size);
+	orthagonalize(columns);
+	//printf("columns->num_vectors: %d\n", columns->num_vectors);
+	
+       	matrix * Q = create_matrix(m->size);
 	for(i = 0; i < Q->size; i++)
 	    for(j = 0; j < Q->size; j++)
-		Q->values[i * Q->size + j] = columns[j]->values[i];
+		Q->values[i * Q->size + j] = columns->vectors[j]->values[i];
 	matrix * Qtranspose = matrix_transpose(Q);
 	matrix * R = matrix_matrix_mult(Qtranspose, A);
 	matrix * temp = matrix_matrix_mult(R, Q);
+	/*printf("A:\n")
+	print_matrix(A);
+	printf("\nQ:\n");
+	print_matrix(Q);
+	printf("\nR:\n");
+	print_matrix(R);
+	printf("\n\n");*/
 	delete_matrix(A);
+	delete_matrix(Qtranspose);
+	delete_matrix(R);
+	delete_matrix(Q);
 	A = temp;
+	done = true;
+	for(i = 1; i < A->size; i++){
+	    for(j = 0; j < i; j++){
+		if(!float_equals(A->values[i * A->size + j], 0)) done = false;
+	    }
+	}
     }
-    
-   
+    diagnolization * ret = (diagnolization *) malloc(sizeof(diagnolization));
+    ret->diagonal = (float *) malloc(m->size * sizeof(float));
+    for(i = 0; i < m->size; i++){
+	ret->diagonal[i] = A->values[i * A->size + i];
+    }
+    //Getting the Eigenvectors
+    ret->eigenvectors = create_matrix(m->size);
+    matrix * tempMat = create_matrix(m->size);
+    int k;
+    for(i = 0; i < m->size; i++){
+	for(j = 0; j < m->size * m->size; j++) tempMat->values[j] = m->values[j];
+	//The null space of tempMat (= m - lambda * I) is the eigenspace
+	//corresponding to lambda
+	for(j = 0; j < tempMat->size; j++){
+	    tempMat->values[j * tempMat->size + j] -= ret->diagonal[i];
+	}
+	vector_space * eigenspace = get_nullspace(tempMat);
+	int multiplicity = 0;
+	for(j = i; j < m->size; j++){
+	    if(ret->diagonal[j] == ret->diagonal[i]) multiplicity++;
+	    else break;
+	}
+	for(j = i; j - i < multiplicity && j - i < eigenspace->num_vectors; j++){
+	    for(k = 0; k < m->size; k++){
+		ret->eigenvectors->values[k * ret->eigenvectors->size + j]
+		    = eigenspace->vectors[j]->values[k];
+	    }
+	}
+	delete_vector_space(eigenspace);
+    }
+    delete_matrix(tempMat);
+    return ret;
 }
 
 diagnolization * diagnolize(matrix * m){
     if(m->size <= SMALL_MATRIX_BOUNDARY) return small_diagnolization(m);
     diagnolization * ret = malloc(sizeof(diagnolization));
-    ret->diagnol = create_matrix(m->size);
+    ret->diagonal = (float *) malloc(m->size * sizeof(float));
     ret->eigenvectors = create_matrix(m->size);
     //A tridiagnol matrix which is similar to m
-    matrix * tridiagnol = householder(m);
+    matrix * tridiagonal = householder(m);
     matrix * T1 = create_matrix(m->size / 2);
     matrix * T2 = create_matrix(m->size - T1->size);
+    
+    delete_matrix(tridiagonal);
+    delete_matrix(T1);
+    delete_matrix(T2);
+    return NULL;
     
 }
 
@@ -364,19 +496,32 @@ void print_vector(vector * v){
 
 int main(){
 
-    float asdf[9] = {1,   2 ,  -1,
-		     2  , 3 ,  -1,
-		     -2 ,  0 ,  -3 };
-    matrix * m = create_matrix(3);
-    int i;
+    float asdf[16] = {4,1,-2,2,
+		     1,2,0,1,
+		      -2,0,3,-1,
+		     2,1,-1,-1};
+    matrix * m = create_matrix(4);
+    int i,j;
     for(i = 0; i < m->size * m->size; i++) m->values[i] = asdf[i];
-    printf("Matrix:\n");
-    print_matrix(m);
-    printf("\n");
+    //    printf("Matrix:\n");
+    //    print_matrix(m);
+    //    printf("\n");
 
-    matrix * rref = row_reduced_echelon_form(m);
-    printf("rref:\n");
-    print_matrix(rref);
+    vector_space * vspace = create_vector_space(2,3);
+    for(i = 0; i < 2; i++)
+	for(j = 0; j < 3; j++)
+	    vspace->vectors[i]->values[j] = 1;
+    vspace->vectors[0]->values[0] = 0;
+
+    vector * angles = angles_to_standard_basis(vspace, false);
+
+    printf("Angles:\n");
+    print_vector(angles);
+
+    //    diagnolization * h = householder(m);
+
+    //    printf("Householder:\n");
+    //    print_matrix(h);
 
     
     return 0;
