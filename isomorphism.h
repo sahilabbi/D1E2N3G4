@@ -9,7 +9,7 @@
 
 
 //Used to avoid rounding errors
-bool float_equals(float a, float b);
+bool float_equals(double a, double b);
 
 gsl_matrix * graph_to_matrix(graph_t * g);
 
@@ -33,7 +33,7 @@ typedef struct
 //combines both permutations and stores the result in acc.  perm is destroyed in the process
 void combinePartialPermutations(PartialPermutation * acc, PartialPermutation * perm);
 
-PartialPermutation * getPermutation(gsl_vector_view * left, gsl_vector_view * right);
+PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * right);
 
 PartialPermutation * isomorphism(graph_t * g1, graph_t * g2);
 
