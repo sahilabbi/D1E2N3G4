@@ -4,10 +4,11 @@
 
 #include <stdbool.h>
 
+#define NUM_NODES 8
 
 typedef struct
 {
-	int adj[N][N];
+	int adj[NUM_NODES][NUM_NODES];
 } graph_t;
 
 void copy_graph(graph_t * dst, graph_t * src);
