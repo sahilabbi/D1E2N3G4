@@ -30,8 +30,11 @@ typedef struct
     int num_perm_sets;
 } PartialPermutation;
 
-//combines both permutations and stores the result in acc.  perm is destroyed in the process
-void combinePartialPermutations(PartialPermutation * acc, PartialPermutation * perm);
+void print_permutation(PartialPermutation * perm);
+void delete_permutation(PartialPermutation * perm);
+
+//combines both permutations and returns the result
+PartialPermutation * combinePartialPermutations(PartialPermutation * acc, PartialPermutation * perm);
 
 PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * right);
 
