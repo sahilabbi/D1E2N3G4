@@ -4,7 +4,7 @@
 
 #include <stdbool.h>
 
-#define NUM_NODES 8
+#define NUM_NODES 6
 
 typedef struct
 {

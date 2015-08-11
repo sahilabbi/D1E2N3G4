@@ -13,6 +13,13 @@ bool float_equals(double a, double b);
 
 gsl_matrix * graph_to_matrix(graph_t * g);
 
+void print_matrix(gsl_matrix * m);
+
+//Assumes the basis vectors given are orthonormal
+gsl_vector * project_vector(gsl_vector * v, gsl_vector ** vspace, int num_vectors);
+
+gsl_vector * reduce_vector_space(gsl_vector ** vectors, int num_vectors);
+
 //A permutation set is a set of indices from
 //the first graph (leftSet) to the
 //second graph (rightSet)

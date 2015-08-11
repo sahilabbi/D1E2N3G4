@@ -3,6 +3,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_permutation.h>
+#include <gsl/gsl_sort_vector.h>
+#include <gsl/gsl_permute_vector.h>
 
 #define EPSILON 0.0001
 
@@ -19,6 +23,26 @@ int float_compare(double a, double b){
     return 0;
 }
 
+gsl_matrix * graph_to_matrix(graph_t * g){
+    gsl_matrix * ret = gsl_matrix_alloc(NUM_NODES, NUM_NODES);
+    int i,j;
+    for(i = 0; i < NUM_NODES; i++){
+	for(j = 0; j < NUM_NODES; j++){
+	    gsl_matrix_set(ret, i, j, g->adj[i][j]);
+	}
+    }
+    return ret;
+}
+
+
+void print_vector(gsl_vector * v){
+    int i;
+    for(i = 0; (size_t) i < v->size; i++){
+	printf("%lf ", gsl_vector_get(v, i));
+    }
+    fflush(stdout);
+}
+
 void delete_permutation(PartialPermutation * perm){
     int i;
     for(i = 0; i < perm->num_perm_sets; i++){
@@ -27,6 +51,52 @@ void delete_permutation(PartialPermutation * perm){
     }
     free(perm->permSets);
     free(perm);
+}
+
+static void vector_normalize(gsl_vector * v){
+    double length = 0;
+    gsl_blas_ddot(v, v, &length);
+    length = 1 / sqrt(length);
+    gsl_vector_scale(v, length);
+}
+
+gsl_vector * project_vector(gsl_vector * v, gsl_vector ** vspace, int num_vectors){
+    int i;
+    gsl_vector * ret = gsl_vector_calloc(v->size);
+    gsl_vector * temp = gsl_vector_alloc(v->size);
+    for(i = 0; i < num_vectors; i++){
+	gsl_vector_memcpy(temp, vspace[i]);
+	double scale = 0;
+	gsl_blas_ddot(vspace[i], v, &scale);
+	gsl_vector_scale(temp, scale);
+	gsl_vector_add(ret, temp);
+    }
+    gsl_vector_free(temp);
+    return ret;
+}
+
+gsl_vector * reduce_vector_space(gsl_vector ** vectors, int num_vectors){
+    if(num_vectors == 1){
+	gsl_vector * ret = gsl_vector_alloc((*vectors)->size);
+	gsl_vector_memcpy(ret, vectors[0]);
+	return ret;
+    }
+    gsl_vector * standard_basis_vector = gsl_vector_calloc((*vectors)->size);
+    gsl_vector * ret = gsl_vector_alloc((*vectors)->size);
+    int i;
+    for(i = 0; (size_t) i < (*vectors)->size; i++){
+	if(i > 0) gsl_vector_set(standard_basis_vector, i-1, 0);
+	gsl_vector_set(standard_basis_vector, i, 1);
+	gsl_vector * proj = project_vector(standard_basis_vector, vectors, num_vectors);
+	vector_normalize(proj);
+	double angle = 0;
+	gsl_blas_ddot(standard_basis_vector, proj, &angle);
+	gsl_vector_set(ret, i, angle);
+
+	gsl_vector_free(proj);
+    }
+    gsl_vector_free(standard_basis_vector);
+    return ret;
 }
 
 typedef struct
@@ -206,17 +276,187 @@ PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * r
 	    currRightPos++;
 	    i++;
 	}
-	realloc(currPermSet->leftSet, currPermSet->size * sizeof(int));
+	currPermSet->leftSet = realloc(currPermSet->leftSet, currPermSet->size * sizeof(int));
 	ret->num_perm_sets++;
     }
-    realloc(ret, ret->num_perm_sets);
+    ret->permSets = realloc(ret->permSets, ret->num_perm_sets * sizeof(PermutationSet));
+
+    free(leftPairs);
+    free(rightPairs);
 
     return ret;
 }
 
-static void print_perm_set(PermutationSet * permSet){
-    printf("[");
+
+static void sort_diagonalization(gsl_vector * eigval, gsl_matrix * eigvec){
+    gsl_permutation * p = gsl_permutation_alloc(eigval->size);
+    gsl_sort_vector_index(p, eigval);
     int i;
+    for(i = 0; (size_t) i < eigval->size; i++){
+	gsl_vector_view theRow = gsl_matrix_row(eigvec, i);
+	gsl_permute_vector(p, &(theRow.vector));
+    }
+    gsl_permute_vector(p, eigval);
+    gsl_permutation_free(p);
+}
+
+void print_matrix(gsl_matrix * mat){
+    int i,j;
+    for(i = 0; (size_t) i < mat->size1; i++){
+	for(j = 0; (size_t) j < mat->size2; j++){
+	    printf("%lf ", gsl_matrix_get(mat, i, j));
+	}
+	printf("\n");
+    }
+    fflush(stdout);
+}
+
+#include <gsl/gsl_eigen.h>
+
+PartialPermutation * isomorphism(graph_t * g1, graph_t * g2){
+    gsl_matrix * mat1 = graph_to_matrix(g1);
+    gsl_matrix * mat2 = graph_to_matrix(g2);
+
+    gsl_eigen_symmv_workspace * workspace = gsl_eigen_symmv_alloc(NUM_NODES);
+    
+    gsl_vector * eigval1 = gsl_vector_alloc(NUM_NODES);
+    gsl_vector * eigval2 = gsl_vector_alloc(NUM_NODES);
+
+    gsl_matrix * eigvec1 = gsl_matrix_alloc(NUM_NODES,NUM_NODES);
+    gsl_matrix * eigvec2 = gsl_matrix_alloc(NUM_NODES,NUM_NODES);
+
+    gsl_eigen_symmv(mat1, eigval1, eigvec1, workspace);
+    gsl_eigen_symmv(mat2, eigval2, eigvec2, workspace);
+
+    gsl_eigen_symmv_free(workspace);
+    gsl_matrix_free(mat1);
+    gsl_matrix_free(mat2);
+
+    sort_diagonalization(eigval1, eigvec1);
+    sort_diagonalization(eigval2, eigvec2);
+
+    /*    printf("eigval1:\n");
+    print_vector(eigval1);
+    printf("\neigvec1:\n");
+    print_matrix(eigvec1);
+    
+    printf("eigval2:\n");
+    print_vector(eigval2);
+    printf("\neigvec2:\n");
+    print_matrix(eigvec2); */
+
+    int i;
+    for(i = 0; i < NUM_NODES; i++){
+	if(!float_equals(gsl_vector_get(eigval1, i),
+			 gsl_vector_get(eigval2, i))) return NULL;
+    }
+    //Since the two vectors are equal, we no longer need the second one
+    gsl_vector_free(eigval2);
+
+    gsl_vector ** columns1 = (gsl_vector **) malloc(NUM_NODES * sizeof(gsl_vector *));
+    gsl_vector ** columns2 = (gsl_vector **) malloc(NUM_NODES * sizeof(gsl_vector *));
+    for(i = 0; i < NUM_NODES; i++){
+	gsl_vector theCol = gsl_matrix_column(eigvec1, i).vector;
+	columns1[i] = gsl_vector_alloc(NUM_NODES);
+	gsl_vector_memcpy(columns1[i], &theCol);
+	theCol = gsl_matrix_column(eigvec2, i).vector;
+	columns2[i] = gsl_vector_alloc(NUM_NODES);
+	gsl_vector_memcpy(columns2[i], &theCol);
+    }
+
+    //Deleting the diagonalization matrices
+    gsl_matrix_free(eigvec1);
+    gsl_matrix_free(eigvec2);
+    
+    /*    printf("columns1:\n");
+    for(i = 0; i < NUM_NODES; i++){
+	print_vector(columns1[i]);
+	printf("\n");
+    }
+    printf("columns2:\n");
+    for(i = 0; i < NUM_NODES; i++){
+	print_vector(columns2[i]);
+	printf("\n");
+	} */
+
+    gsl_vector ** reducedColumns1 = (gsl_vector **) malloc(NUM_NODES * sizeof(gsl_vector *));
+    gsl_vector ** reducedColumns2 = (gsl_vector **) malloc(NUM_NODES * sizeof(gsl_vector *));
+    int numSpaces = 0;
+    i = 0;
+    while(i < NUM_NODES){
+	int currSpaceSize = 0;
+	do {
+	    currSpaceSize++;
+	    i++;
+	}
+	while(i < NUM_NODES && float_equals(gsl_vector_get(eigval1, i),
+					    gsl_vector_get(eigval1, i-1)));
+	reducedColumns1[numSpaces] = reduce_vector_space(columns1 + i - currSpaceSize,
+							 currSpaceSize);
+	reducedColumns2[numSpaces] = reduce_vector_space(columns2 + i - currSpaceSize,
+							 currSpaceSize);
+	numSpaces++;
+    }
+    reducedColumns1 = (gsl_vector **) realloc(reducedColumns1, numSpaces * sizeof(gsl_vector *));
+    reducedColumns2 = (gsl_vector **) realloc(reducedColumns2, numSpaces * sizeof(gsl_vector *));
+
+    for(i = 0; i < NUM_NODES; i++){
+	gsl_vector_free(columns1[i]);
+	gsl_vector_free(columns2[i]);
+    }
+    free(columns1);
+    free(columns2);
+
+    gsl_vector_free(eigval1);
+
+    PartialPermutation ** perms
+	= (PartialPermutation **) malloc(numSpaces * sizeof(PartialPermutation *));
+    for(i = 0; i < numSpaces; i++)
+	perms[i] = getPermutationFromVectors(reducedColumns1[i], reducedColumns2[i]);
+
+    for(i = 0; i < numSpaces; i++) {
+	gsl_vector_free(reducedColumns1[i]);
+	gsl_vector_free(reducedColumns2[i]);
+    }
+    free(reducedColumns1);
+    free(reducedColumns2);
+
+    PartialPermutation * ret = (PartialPermutation *) malloc(sizeof(PartialPermutation));
+    ret->permSets = (PermutationSet *) malloc(perms[0]->num_perm_sets * sizeof(PermutationSet));
+    ret->num_perm_sets = perms[0]->num_perm_sets;
+    for(i = 0; i < ret->num_perm_sets; i++){
+	ret->permSets[i].size = perms[0]->permSets[i].size;
+	ret->permSets[i].leftSet  = (int *) malloc(ret->permSets[i].size * sizeof(int));
+	ret->permSets[i].rightSet = (int *) malloc(ret->permSets[i].size * sizeof(int));
+	memcpy(ret->permSets[i].leftSet,
+	       perms[0]->permSets[i].leftSet,
+	       ret->permSets[i].size * sizeof(int));
+	memcpy(ret->permSets[i].rightSet,
+	       perms[0]->permSets[i].rightSet,
+	       ret->permSets[i].size * sizeof(int));
+    }
+    if(ret == NULL) return NULL;
+    for(i = 1; i < numSpaces; i++){
+	PartialPermutation * temp = combinePartialPermutations(ret, perms[i]);
+	if(temp == NULL){
+	    ret = NULL;
+	    break;
+	}
+	delete_permutation(ret);
+	ret = temp;
+    }
+
+    for(i = 0; i < numSpaces; i++){
+	delete_permutation(perms[i]);
+    }
+    free(perms);
+    
+    return ret;
+}
+
+static void print_perm_group(PermutationSet * permSet){
+    int i;
+    printf("[");
     for(i = 0; i < permSet->size; i++){
 	printf("%d", permSet->leftSet[i]);
 	if(i + 1 < permSet->size) printf(",");
@@ -236,48 +476,60 @@ void print_permutation(PartialPermutation * perm){
     }
     int i;
     for(i = 0; i < perm->num_perm_sets; i++){
-	print_perm_set(&perm->permSets[i]);
+	print_perm_group(perm->permSets + i);
 	printf("\n");
     }
 }
-    
-
-#ifdef MATRIX_TEST
 
 int main(){
-    double left[7] = {1.7, 2.2, 2.2, -1.4, -2.3, -1.4, 2.2};
-    double right[7] = {2.2, 2.2, -2.3, -1.4, 1.7, -1.4, 2.2};
-    double left2[7] = {-2.8, 1.31, 1.31, 1.31, 1.31, 0.92, -0.21};
-    double right2[7] = {1.31, 1.31, 1.31, 0.92, -2.8, 1.31, -0.21};
 
-    gsl_vector * vec1 = gsl_vector_alloc(7);
-    gsl_vector * vec2 = gsl_vector_alloc(7);
-    gsl_vector * vec3 = gsl_vector_alloc(7);
-    gsl_vector * vec4 = gsl_vector_alloc(7);
+    int adj1[8][8] = {{0,1,1,0,1,0,0,0},
+		      {1,0,0,1,1,1,1,0},
+		      {1,0,0,1,1,1,0,1},
+		      {0,1,1,0,0,1,0,0},
+		      {1,1,1,0,0,0,1,0},
+		      {0,1,1,1,0,0,0,1},
+		      {0,1,0,0,1,0,0,1},
+		      {0,0,1,0,0,1,1,0}};
+    int adj2[8][8] = {{0,1,0,1,0,0,0,1},
+		      {1,0,1,0,0,0,1,1},
+		      {0,1,0,1,0,1,0,0},
+		      {1,0,1,0,1,1,0,0},
+		      {0,0,0,1,0,1,0,1},
+		      {0,0,1,1,1,0,1,1},
+		      {0,1,0,0,0,1,0,1},
+		      {1,1,0,0,1,1,1,0}};
+    int iso2[6][6] ={{0, 0, 0, 0, 1, 0},
+		     {0, 0, 0, 1, 1, 1},
+		     {0, 0, 0, 0, 0, 1},
+		     {0, 1, 0, 0, 0, 0},
+		     {1, 1, 0, 0, 0, 1},
+		     {0, 1, 1, 0, 1, 0}};
+	
+    int iso1[6][6] = {{0, 0, 0, 0, 0, 1},
+		      {0, 0, 0, 0, 1, 0},
+		      {0, 0, 0, 1, 1, 1},
+		      {0, 0, 1, 0, 0, 0},
+		      {0, 1, 1, 0, 0, 1},
+		      {1, 0, 1, 0, 1, 0}};
 
-    int i;
-    for(i = 0; i < 7; i++){
-	gsl_vector_set(vec1, i, left[i]);
-	gsl_vector_set(vec2, i, right[i]);
-	gsl_vector_set(vec3, i, left2[i]);
-	gsl_vector_set(vec4, i, right2[i]);
-    }
 
+    graph_t * g1 = malloc(sizeof(graph_t));
+    graph_t * g2 = malloc(sizeof(graph_t));
 
-    PartialPermutation * thePerm = getPermutationFromVectors(vec1, vec2);
-    PartialPermutation * thePerm2 = getPermutationFromVectors(vec3, vec4);
+    memcpy(g1->adj, iso1, sizeof(iso1));
+    memcpy(g2->adj, iso2, sizeof(iso2));
 
-    print_permutation(thePerm);
-    printf("\n");
-    print_permutation(thePerm2);
-    printf("\n");
+    PartialPermutation * theIso = isomorphism(g1, g2);
+    print_permutation(theIso);
+    delete_permutation(theIso);
 
-    PartialPermutation * combinded = combinePartialPermutations(thePerm, thePerm2);
-    print_permutation(combinded);
+    free(g1);
+    free(g2);
+	
     
     return 0;
 }
     
-#endif
 
 
