@@ -1,6 +1,6 @@
 MPICC ?= mpicc 
 CFLAGS += -Wall -I .
-LDFLAGS += -lgsl
+LDFLAGS += -lgsl -lgslcblas
 NAME = exhuastive_search
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
