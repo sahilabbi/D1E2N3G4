@@ -10,6 +10,10 @@
 
 //Used to avoid rounding errors
 bool float_equals(double a, double b);
+int float_compare(double a, double b);
+
+void print_vector(gsl_vector * v);
+void print_matrix(gsl_matrix * m);
 
 gsl_matrix * graph_to_matrix(graph_t * g);
 
