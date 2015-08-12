@@ -13,6 +13,7 @@ typedef struct
 } graph_t;
 
 void copy_graph(graph_t * dst, graph_t * src);
+void print_graph(graph_t * g);
 //gets the next graph in sequence for the brute force search
 //returns true if the graph has reached its final state
 //and therefore cannot be incremented
