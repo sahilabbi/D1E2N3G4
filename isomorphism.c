@@ -481,6 +481,8 @@ void print_permutation(PartialPermutation * perm){
     }
 }
 
+#ifdef MATRIX_TEST
+
 int main(){
 
     int adj1[8][8] = {{0,1,1,0,1,0,0,0},
@@ -531,5 +533,20 @@ int main(){
     return 0;
 }
     
+#endif
 
+#ifdef ISO_TEST
+
+int main(){
+    graph_t * g = (graph_t *) malloc(sizeof(graph_t));
+    int i,j;
+    for(i = 0; i < NUM_NODES; i++){
+	for(j = 0; j < NUM_NODES; j++){
+	    g->adj[i][j] = 0;
+	}
+    }
+
+}
+
+#endif
 

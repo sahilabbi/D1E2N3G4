@@ -4,10 +4,10 @@ LDFLAGS += -lgsl -lgslcblas
 NAME = exhuastive_search
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-NUM_NODES ?= 8
-NODE_DEGREE ?= 3
+N ?= 8
+K ?= 3
 
-CFLAGS += -DN=$(N) -DK=$(K) -g
+CFLAGS += -DNUM_NODES=$(N) -DNODE_DEGREE=$(K) -g
 
 all: $(NAME)
 
@@ -16,6 +16,12 @@ increment_test: graph.c graph.h
 
 matrix_test: isomorphism.c isomorphism.h graph.h
 	gcc $(CFLAGS) -o $(NAME) -DMATRIX_TEST isomorphism.c $(LDFLAGS)
+
+iso_test: isomorphism.c isomorphism.h graph.c graph.h
+	gcc $(CFLAGS) -o $(NAME) -DISO_TEST isomorphism.c graph.c $(LDFLAGS)
+
+graph_set_test: graph.c graph.h graph_set.c graph_set.h isomorphism.c isomorphism.h
+	gcc $(CFLAGS) -o $(NAME) -DGRAPH_SET_TEST graph_set.c graph.c isomorphism.c $(LDFLAGS)
 
 clean:
 	rm -f $(NAME) distance_test swap_test $(OBJECTS)

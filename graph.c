@@ -16,11 +16,19 @@ void copy_graph(graph_t * dst, graph_t * src){
 //as any graph obtained by altering them would be isomporphic
 //to some other graph  obtained without altering them
 static bool is_protected(int row, int column){
+    //If ISO_TEST is defined then we are cycling through
+    //all the graphs, so only the diagonal is protected
+#ifndef ISO_TEST
     if(row == 0) return true;
+#endif
     if(row == column) return true;
+#ifdef ISO_TEST
+    return false;
+#else
     if(row - column != 1 && column - row != 1) return false;
     int x = row > column ? row : column;
     return x % 2 == NODE_DEGREE % 2;
+#endif
 }
 
 //moves the cursor right to left on the row
@@ -32,7 +40,7 @@ static void increment_cursor(int * i, int * j){
     if(is_protected(*i,*j)){
 	*i -= 1;
 	*j = NUM_NODES-1;
-	if(i == 0) return;
+	if(i == 0 && j == 0) return;
     }
 }
 
