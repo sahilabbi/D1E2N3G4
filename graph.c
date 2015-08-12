@@ -4,8 +4,8 @@
 
 void copy_graph(graph_t * dst, graph_t * src){
     int i,j;
-    for(i = 0; i < N; i++){
-		for(j = 0; j < N; j++){
+    for(i = 0; i < NUM_NODES; i++){
+		for(j = 0; j < NUM_NODES; j++){
 			dst->adj[i][j] = src->adj[i][j];
 		}
     }
@@ -20,7 +20,7 @@ static bool is_protected(int row, int column){
     if(row == column) return true;
     if(row - column != 1 && column - row != 1) return false;
     int x = row > column ? row : column;
-    return x % 2 == K % 2;
+    return x % 2 == NODE_DEGREE % 2;
 }
 
 //moves the cursor right to left on the row
@@ -31,15 +31,15 @@ static void increment_cursor(int * i, int * j){
     *j -= 1;
     if(is_protected(*i,*j)){
 	*i -= 1;
-	*j = N-1;
+	*j = NUM_NODES-1;
 	if(i == 0) return;
     }
 }
 
 bool is_regular(int * degree){
 	int i;
-	for(i = 0; i < N; i++){
-		if(degree[i] != K) return false;
+	for(i = 0; i < NUM_NODES; i++){
+		if(degree[i] != NODE_DEGREE) return false;
 	}
 	return true;
 }
@@ -47,17 +47,17 @@ bool is_regular(int * degree){
 #include <stdio.h>
 
 bool increment_graph(graph_t * graph){
-    int degree[N];
+    int degree[NUM_NODES];
     int i,j;
-    for(i = 0; i < N; i++){
+    for(i = 0; i < NUM_NODES; i++){
 	int sum = 0;
-	for(j = 0; j < N; j++){
+	for(j = 0; j < NUM_NODES; j++){
 	    sum += graph->adj[i][j];
 	}
 	degree[i] = sum;
     }
-    i = N-2;
-    j = N-1;
+    i = NUM_NODES-2;
+    j = NUM_NODES-1;
     //incase the first edge selected is one of the initial edges
     if(is_protected(i,j)) increment_cursor(&i,&j);
     //while(!is_regular(&degree[0])){
@@ -73,7 +73,7 @@ bool increment_graph(graph_t * graph){
     graph->adj[j][i] = 1;
     degree[i]++;
     degree[j]++;
-    printf("i: %d\nj: %d\n", i, j);
+    //    printf("i: %d\nj: %d\n", i, j);
     //}
     return false;
 }
@@ -82,12 +82,12 @@ graph_t * initial_graph(){
 	graph_t * ret = (graph_t *) malloc(sizeof(graph_t));
 	memset(&ret->adj[0][0], 0, sizeof(ret->adj));
 	int i;
-	for(i = 1; i <= K; i++){
+	for(i = 1; i <= NODE_DEGREE; i++){
 		ret->adj[0][i] = 1;
 		ret->adj[i][0] = 1;
 	}
 
-	for(i = K+1; i < N; i += 2){
+	for(i = NODE_DEGREE+1; i < NODE_DEGREE; i += 2){
 		ret->adj[i][i+1] = 1;
 		ret->adj[i+1][i] = 1;
 	}
@@ -98,8 +98,8 @@ graph_t * initial_graph(){
 #include <stdio.h>
 void print_graph(graph_t * g){
 	int i,j;
-	for(i = 0; i < N; i++){
-		for(j = 0; j < N; j++){
+	for(i = 0; i < NUM_NODES; i++){
+		for(j = 0; j < NUM_NODES; j++){
 			printf("%d ",g->adj[i][j]);
 		}
 		printf("\n");
@@ -119,7 +119,8 @@ int main(){
 		printf("\n");
 	}
 
-	printf("is_protected(%d,%d)=%d\n",K+1,K+2,is_protected(K+1,K+2));
+	printf("is_protected(%d,%d)=%d\n",NODE_DEGREE+1,NODE_DEGREE+2,
+	       is_protected(NODE_DEGREE+1,NODE_DEGREE+2));
 	return 0;
 }
 
