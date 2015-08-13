@@ -6,6 +6,7 @@
 #include "graph.h"
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_permute.h>
 
 
 //Used to avoid rounding errors
@@ -52,5 +53,9 @@ PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * r
 PartialPermutation * isomorphism(graph_t * g1, graph_t * g2);
 
 bool is_isomorphic(graph_t * g1, graph_t * g2);
+
+gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2);
+
+
 
 #endif

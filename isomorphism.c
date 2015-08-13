@@ -454,6 +454,96 @@ PartialPermutation * isomorphism(graph_t * g1, graph_t * g2){
     return ret;
 }
 
+bool is_isomorphic(graph_t * g1, graph_t * g2){
+    PartialPermutation * iso = isomorphism(g1, g2);
+    if(iso == NULL) return false;
+    delete_permutation(iso);
+    return true;
+}
+
+static bool isComplete(PartialPermutation * perm){
+    return perm->num_perm_sets == NUM_NODES;
+}
+
+gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
+    PartialPermutation * iso = isomorphism(g1,g2);
+    if(iso == NULL) return NULL;
+    int i,j;
+    while(!isComplete(iso)){
+	//Select a vertex whose other isomorphism are not determined
+	int v = 0;
+	PermutationSet * currPermSet = 0;
+	for(i = 0; i < iso->num_perm_sets; i++){
+	    if(iso->permSets[i].size > 1){
+		currPermSet = iso->permSets + i;
+		v = currPermSet->leftSet[0];
+		break;
+	    }
+	}
+	//Remove or add one link to v
+	//theLink holds which link is modified
+	int theLink = currPermSet->leftSet[1];
+	int linkValue = g1->adj[v][theLink];
+	int oppositeLinkValue = linkValue == 0 ? 1 : 0;
+	g1->adj[v][theLink] = oppositeLinkValue;
+	g1->adj[theLink][v] = oppositeLinkValue;
+	
+	//Go through every vertex in g2 and try to get an isomorphism
+	bool done = false;
+	for(i = 0; i < currPermSet->size; i++){
+	    int u = currPermSet->leftSet[i];
+	    for(j = 0; j < currPermSet->size; j++){
+		if(j == i) continue;
+		//We're testing the link between u and testLink
+		int testLink = currPermSet->rightSet[j];
+		if(g2->adj[u][testLink] != linkValue) continue;
+		g2->adj[u][testLink] = oppositeLinkValue;
+		g2->adj[testLink][u] = oppositeLinkValue;
+		PartialPermutation * newIso = isomorphism(g1, g2);
+		if(newIso != NULL){
+		    PartialPermutation * temp = combinePartialPermutations(iso, newIso);
+		    delete_permutation(iso);
+		    delete_permutation(newIso);
+		    iso = temp;
+		    done = true;
+		    break;
+		}
+	    }
+	    if(done) break;
+	}
+	//If none of the vertecies in g2 correspond, there is no ismorphism
+	//log the fact that the inital test was incorrect
+	if(!done){
+	    delete_permutation(iso);
+	    printf("Could not find isomorphism between two graphs\n");
+	    printf("g1:\n");
+	    print_graph(g1);
+	    printf("\ng2:\n");
+	    print_graph(g2);
+	    printf("\n");
+	    return NULL;
+	}
+    }
+    //Now the partial permutation is a complete permutation
+    gsl_permutation * leftPerm = gsl_permutation_alloc(NUM_NODES);
+    gsl_permutation * rightPerm = gsl_permutation_alloc(NUM_NODES);
+    for(i = 0; i < NUM_NODES; i++){
+	leftPerm->data[i] = iso->permSets[i].leftSet[0];
+	rightPerm->data[i] = iso->permSets[i].rightSet[0];
+    }
+    gsl_permutation * inverse = gsl_permutation_alloc(NUM_NODES);
+    gsl_permutation_inverse(inverse, leftPerm);
+    gsl_permutation * ret = gsl_permutation_alloc(NUM_NODES);
+
+    gsl_permutation_mul(ret, inverse, rightPerm);
+
+    gsl_permutation_free(leftPerm);
+    gsl_permutation_free(rightPerm);
+    gsl_permutation_free(inverse);
+
+    return ret;
+}
+
 static void print_perm_group(PermutationSet * permSet){
     int i;
     printf("[");
@@ -522,9 +612,13 @@ int main(){
     memcpy(g1->adj, iso1, sizeof(iso1));
     memcpy(g2->adj, iso2, sizeof(iso2));
 
-    PartialPermutation * theIso = isomorphism(g1, g2);
-    print_permutation(theIso);
-    delete_permutation(theIso);
+    gsl_permutation * theIso = getIsomorphism(g1, g2);
+    int i;
+    for(i = 0; i < NUM_NODES; i++){
+	printf("%d ", theIso->data[i]);
+    }
+    printf("\n");
+    gsl_permutation_free(theIso);
 
     free(g1);
     free(g2);

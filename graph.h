@@ -4,8 +4,8 @@
 
 #include <stdbool.h>
 
-#define NUM_NODES 8
-#define NODE_DEGREE 3
+//#define NUM_NODES 8
+//#define NODE_DEGREE 3
 
 typedef struct
 {
