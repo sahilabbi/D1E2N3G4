@@ -110,6 +110,29 @@ void insert_graph(graph_set * gs, graph_t * g){
     }
 }
 
+bool check_isomorphism(graph_set * gs, graph_t * g){
+    gsl_vector * eigval = gsl_vector_alloc(NUM_NODES);
+    gsl_eigen_symm_workspace * workspace = gsl_eigen_symm_alloc(NUM_NODES);
+
+    gsl_matrix * mat = graph_to_matrix(g);
+
+    gsl_eigen_symm(mat, eigval, workspace);
+    gsl_eigen_symm_free(workspace);
+    gsl_matrix_free(mat);
+
+    gsl_sort_vector(eigval);
+
+    int index = find_eigenvalues(gs, eigval);
+    gsl_vector_free(eigval);
+    //If the eigenvalues are not in the set, the graph is not ismorphic
+    if(index < 0) return false;
+    int i;
+    for(i = 0; (size_t) i < gs->graph_set_sizes[index]; i++){
+	if(is_isomorphic(gs->graphs[index][i], g)) return true;
+    }
+    return false;
+}
+
 
 #ifdef GRAPH_SET_TEST
 
@@ -157,19 +180,22 @@ int main(){
     int i,j;
     for(i = 0; i < NUM_NODES; i++){
 	for(j = 0; j < NUM_NODES; j++){
-	    if(i == j) continue;
-	    g3->adj[i][j] = 1;
+	    if(i == j) g3->adj[i][j] = 0;
+	    else g3->adj[i][j] = 1;
 	}
     }
 
     memcpy(&g1->adj[0][0], &adj1[0][0], sizeof(adj1));
     memcpy(&g2->adj[0][0], &adj2[0][0], sizeof(adj2));
 
-    insert_graph(gs, g3);
     insert_graph(gs, g1);
-    insert_graph(gs, g2);
+    //    insert_graph(gs, g2);
+    insert_graph(gs, g3);
 
     print_graph_set(gs);
+
+    printf("\nIsomorphism check: %d, %d\n", check_isomorphism(gs, g1),
+	   check_isomorphism(gs, g2));
 }
 
 #endif
