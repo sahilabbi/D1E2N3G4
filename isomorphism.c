@@ -260,7 +260,12 @@ PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * r
     i = 0;
     while((size_t) i < left->size){
 	//If the values don't agree, return false
-	if(!float_equals(currLeftPos->value, currRightPos->value)) return NULL;
+	if(!float_equals(currLeftPos->value, currRightPos->value)){
+	    delete_permutation(ret);
+	    free(leftPairs);
+	    free(rightPairs);
+	    return NULL;
+	}
 	double currVal = currLeftPos->value;
 	PermutationSet * currPermSet = &ret->permSets[ret->num_perm_sets];
 	currPermSet->size = 0;
@@ -268,7 +273,14 @@ PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * r
 	currPermSet->rightSet = (int *) malloc(left->size * sizeof(int));
 	while((size_t) i < left->size &&
 	      float_equals(currLeftPos->value, currVal)){
-	    if(!float_equals(currLeftPos->value, currRightPos->value)) return NULL;
+	    if(!float_equals(currLeftPos->value, currRightPos->value)){
+		free(currPermSet->leftSet);
+		free(currPermSet->rightSet);
+		delete_permutation(ret);
+		free(leftPairs);
+		free(rightPairs);
+		return NULL;
+	    }
 	    currPermSet->leftSet[currPermSet->size] = currLeftPos->index;
 	    currPermSet->rightSet[currPermSet->size] = currRightPos->index;
 	    currPermSet->size++;
@@ -277,6 +289,7 @@ PartialPermutation * getPermutationFromVectors(gsl_vector * left, gsl_vector * r
 	    i++;
 	}
 	currPermSet->leftSet = realloc(currPermSet->leftSet, currPermSet->size * sizeof(int));
+	currPermSet->rightSet = realloc(currPermSet->rightSet, currPermSet->size * sizeof(int));
 	ret->num_perm_sets++;
     }
     ret->permSets = realloc(ret->permSets, ret->num_perm_sets * sizeof(PermutationSet));
@@ -422,32 +435,39 @@ PartialPermutation * isomorphism(graph_t * g1, graph_t * g2){
     free(reducedColumns2);
 
     PartialPermutation * ret = (PartialPermutation *) malloc(sizeof(PartialPermutation));
-    ret->permSets = (PermutationSet *) malloc(perms[0]->num_perm_sets * sizeof(PermutationSet));
-    ret->num_perm_sets = perms[0]->num_perm_sets;
-    for(i = 0; i < ret->num_perm_sets; i++){
-	ret->permSets[i].size = perms[0]->permSets[i].size;
-	ret->permSets[i].leftSet  = (int *) malloc(ret->permSets[i].size * sizeof(int));
-	ret->permSets[i].rightSet = (int *) malloc(ret->permSets[i].size * sizeof(int));
-	memcpy(ret->permSets[i].leftSet,
-	       perms[0]->permSets[i].leftSet,
-	       ret->permSets[i].size * sizeof(int));
-	memcpy(ret->permSets[i].rightSet,
-	       perms[0]->permSets[i].rightSet,
-	       ret->permSets[i].size * sizeof(int));
-    }
-    if(ret == NULL) return NULL;
-    for(i = 1; i < numSpaces; i++){
-	PartialPermutation * temp = combinePartialPermutations(ret, perms[i]);
-	if(temp == NULL){
-	    ret = NULL;
-	    break;
+    if(perms[0] != NULL){
+	ret->permSets = (PermutationSet *) malloc(perms[0]->num_perm_sets * sizeof(PermutationSet));
+	ret->num_perm_sets = perms[0]->num_perm_sets;
+	for(i = 0; i < ret->num_perm_sets; i++){
+	    ret->permSets[i].size = perms[0]->permSets[i].size;
+	    ret->permSets[i].leftSet  = (int *) malloc(ret->permSets[i].size * sizeof(int));
+	    ret->permSets[i].rightSet = (int *) malloc(ret->permSets[i].size * sizeof(int));
+	    memcpy(ret->permSets[i].leftSet,
+		   perms[0]->permSets[i].leftSet,
+		   ret->permSets[i].size * sizeof(int));
+	    memcpy(ret->permSets[i].rightSet,
+		   perms[0]->permSets[i].rightSet,
+		   ret->permSets[i].size * sizeof(int));
 	}
-	delete_permutation(ret);
-	ret = temp;
+    }
+    else {
+	free(ret);
+	ret = NULL;
+    }
+    if(ret != NULL) {
+	for(i = 1; i < numSpaces; i++){
+	    PartialPermutation * temp = combinePartialPermutations(ret, perms[i]);
+	    delete_permutation(ret);
+	    if(temp == NULL){
+		ret = NULL;
+		break;
+	    }
+	    ret = temp;
+	}
     }
 
     for(i = 0; i < numSpaces; i++){
-	delete_permutation(perms[i]);
+	if(perms[i] != NULL) delete_permutation(perms[i]);
     }
     free(perms);
     

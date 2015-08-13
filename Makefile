@@ -4,7 +4,7 @@ LDFLAGS += -lgsl -lgslcblas
 NAME = exhuastive_search
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-N ?= 6
+N ?= 8
 K ?= 3
 
 CFLAGS += -DNUM_NODES=$(N) -DNODE_DEGREE=$(K) -g
