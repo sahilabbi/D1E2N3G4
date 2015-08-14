@@ -7,29 +7,27 @@
 
 graph_set * graph_set_alloc(){
     graph_set * ret = malloc(sizeof(graph_set));
-    ret->eigenvalues = NULL;
-    ret->graphs = NULL;
-    ret->graph_set_sizes = NULL;
+    ret->iso_groups = NULL;
     ret->size = 0;
     return ret;
 }
 
+
 void delete_graph_set(graph_set * gs){
     int i,j;
     for(i = 0; (size_t) i < gs->size; i++){
-	gsl_vector_free(gs->eigenvalues[i]);
-	for(j = 0; (size_t) j < gs->graph_set_sizes[i]; j++){
-	    free(gs->graphs[i][j]);
-	}
-	free(gs->graphs[i]);
+	isospectral_group * currGroup = gs->iso_groups + i;
+	gsl_vector_free(currGroup->eigenvalues);
+	for(j = 0; (size_t) j < currGroup->num_graphs; j++)
+	    free(currGroup->graphs[i]);
     }
-    free(gs->graph_set_sizes);
-    free(gs->eigenvalues);
-    free(gs->graphs);
+    free(gs->iso_groups);
     free(gs);
 }
 
-static int vector_compare(gsl_vector * v1, gsl_vector * v2){
+static int vector_compare(const void * a, const void * b){
+    gsl_vector * v1 = (gsl_vector *) a;
+    gsl_vector * v2 = (gsl_vector *) b;
     size_t i;
     for(i = 0; i < v1->size; i++){
 	int cmp = float_compare(gsl_vector_get(v1, i), gsl_vector_get(v2, i));
@@ -38,26 +36,22 @@ static int vector_compare(gsl_vector * v1, gsl_vector * v2){
     return 0;
 }
 
-static int find_eigenvalues_iter(graph_set * gs, gsl_vector * eigenval, int start, int end){
-    if(end - start < 2){
-	if(vector_compare(gs->eigenvalues[start], eigenval) == 0)
-	    return start;
-	else if(vector_compare(gs->eigenvalues[end], eigenval) == 0)
-	    return end;
-	else return -(start + 1);
-    }
-    int mid = (start + end)/2;
-    int cmp = vector_compare(gs->eigenvalues[mid], eigenval);
-    if(cmp == 0) return mid;
-    if(cmp == 1) //search [start, mid]
-	return find_eigenvalues_iter(gs, eigenval, start, mid);
-    else //search [mid, end]
-	return find_eigenvalues_iter(gs, eigenval, mid, end);
+static int isospectral_group_compare(const void * a, const void * b){
+    isospectral_group * gr1 = (isospectral_group *) a;
+    isospectral_group * gr2 = (isospectral_group *) b;
+    return vector_compare(gr1->eigenvalues, gr2->eigenvalues);
 }
 
-int find_eigenvalues(graph_set * gs, gsl_vector * eigenval){
-    if(gs->size == 0) return -1;
-    return find_eigenvalues_iter(gs, eigenval, 0, gs->size - 1);
+isospectral_group * find_eigenvalues(graph_set * gs, gsl_vector * eigenval){
+    isospectral_group key = {.eigenvalues = eigenval,
+			     .graphs = NULL,
+			     .num_graphs = 0};
+    isospectral_group * ret = (isospectral_group *) bsearch(&key,
+							    gs->iso_groups,
+							    gs->size,
+							    sizeof(isospectral_group),
+							    isospectral_group_compare);
+    return ret;
 }
 
 #include <gsl/gsl_sort_vector.h>
@@ -75,38 +69,40 @@ void insert_graph(graph_set * gs, graph_t * g){
 
     gsl_sort_vector(eigval);
 
-    int index = find_eigenvalues(gs, eigval);
-    //The eigenvalues are already in the set
-    if(index >= 0){
-	gsl_vector_free(eigval);
-	gs->graph_set_sizes[index]++;
-	gs->graphs[index] = (graph_t **) realloc(gs->graphs[index],
-						 gs->graph_set_sizes[index] * sizeof(graph_t *));
-	gs->graphs[index][gs->graph_set_sizes[index] - 1] = (graph_t *) malloc(sizeof(graph_t));
-	memcpy(&gs->graphs[index][gs->graph_set_sizes[index] - 1]->adj[0][0],
-	       &g->adj[0][0], sizeof(g->adj));
-	       
-    }
-    else { //The eigenvalues must be added to the set
-	index = -index - 1;
+    /*    printf("Inserting Vector:\n");
+    print_vector(eigval);
+    printf("\n"); */
+
+    isospectral_group * index = find_eigenvalues(gs, eigval);
+    if(index == NULL){ //The eigenvalues need to be added to the set
+	//Create the new group to be added to gs
+	isospectral_group * newGroup = malloc(sizeof(isospectral_group));
+	newGroup->eigenvalues = eigval;
+	newGroup->graphs = (graph_t **) malloc(sizeof(graph_t *));
+	newGroup->graphs[0] = (graph_t *) malloc(sizeof(graph_t));
+	newGroup->num_graphs = 1;
+	memcpy(&newGroup->graphs[0]->adj[0][0], &g->adj[0][0], sizeof(g->adj));
+
+	//allocate the extra memory for the new set
 	gs->size++;
-	//Reallocating memory
-	gs->eigenvalues = (gsl_vector **) realloc(gs->eigenvalues, gs->size * sizeof(gsl_vector *));
-	gs->graphs = (graph_t ***) realloc(gs->graphs, gs->size * sizeof(graph_t **));
-	gs->graph_set_sizes = (size_t *) realloc(gs->graph_set_sizes, gs->size * sizeof(size_t));
-	//Shifting values down
-	int i;
-	for(i = gs->size - 1; i > index; i--){
-	    gs->eigenvalues[i] = gs->eigenvalues[i-1];
-	    gs->graphs[i] = gs->graphs[i-1];
-	    gs->graph_set_sizes[i] = gs->graph_set_sizes[i-1];
-	}
+	gs->iso_groups = realloc(gs->iso_groups, gs->size * sizeof(isospectral_group));
+
+	//Inserting the new group
+	memcpy(&gs->iso_groups[gs->size - 1], newGroup, sizeof(isospectral_group));
+	//removes only the top-level elements so the elements in gs are not deleted
+	free(newGroup);
+
+	//resort gs
+	qsort(gs->iso_groups, gs->size, sizeof(isospectral_group), isospectral_group_compare);
+    }
+    else { //The eigenvalues are already in the set
+	//reallocate the memory to allow for the new graph
+	index->num_graphs++;
+	index->graphs = (graph_t **) realloc(index->graphs, index->num_graphs * sizeof(graph_t *));
+	index->graphs[index->num_graphs - 1] = (graph_t *) malloc(sizeof(graph_t));
+
 	//Inserting the graph
-	gs->eigenvalues[index] = eigval;
-	gs->graphs[index] = (graph_t **) malloc(sizeof(graph_t *));
-	gs->graphs[index][0] = (graph_t *) malloc(sizeof(graph_t));
-	memcpy(&gs->graphs[index][0]->adj[0][0], &g->adj[0][0], sizeof(g->adj));
-	gs->graph_set_sizes[index] = 1;
+	memcpy(&index->graphs[index->num_graphs - 1]->adj[0][0], &g->adj[0][0], sizeof(g->adj));
     }
 }
 
@@ -122,38 +118,40 @@ bool check_isomorphism(graph_set * gs, graph_t * g){
 
     gsl_sort_vector(eigval);
 
-    int index = find_eigenvalues(gs, eigval);
+    isospectral_group * index = find_eigenvalues(gs, eigval);
     gsl_vector_free(eigval);
     //If the eigenvalues are not in the set, the graph is not ismorphic
-    if(index < 0) return false;
+    if(index == NULL) return false;
     int i;
-    for(i = 0; (size_t) i < gs->graph_set_sizes[index]; i++){
-	if(is_isomorphic(gs->graphs[index][i], g)) return true;
+    for(i = 0; (size_t) i < index->num_graphs; i++){
+	if(is_isomorphic(index->graphs[i], g)) return true;
     }
     return false;
 }
 
 
-#ifdef GRAPH_SET_TEST
 
-static void print_graphs(gsl_vector * eigenvalues, graph_t ** graphs, size_t graph_set_size){
+
+static void print_isospectral_group(isospectral_group * gr){
     printf("Eigenvalues:\n");
-    print_vector(eigenvalues);
+    print_vector(gr->eigenvalues);
     printf("\nGraphs:\n");
     int i;
-    for(i = 0; i < graph_set_size; i++){
-	print_graph(graphs[i]);
+    for(i = 0; (size_t) i < gr->num_graphs; i++){
+	print_graph(gr->graphs[i]);
 	printf("\n");
     }
 }
 
-static void print_graph_set(graph_set * gs){
+void print_graph_set(graph_set * gs){
     int i;
-    for(i = 0; i < gs->size; i++){
-	print_graphs(gs->eigenvalues[i], gs->graphs[i], gs->graph_set_sizes[i]);
+    for(i = 0; (size_t) i < gs->size; i++){
+	print_isospectral_group(&gs->iso_groups[i]);
 	printf("\n\n");
     }
 }
+
+#ifdef GRAPH_SET_TEST
 
 int main(){
     graph_set * gs = graph_set_alloc();
@@ -188,14 +186,14 @@ int main(){
     memcpy(&g1->adj[0][0], &adj1[0][0], sizeof(adj1));
     memcpy(&g2->adj[0][0], &adj2[0][0], sizeof(adj2));
 
-    insert_graph(gs, g1);
-    //    insert_graph(gs, g2);
     insert_graph(gs, g3);
+    insert_graph(gs, g1);
+    insert_graph(gs, g2);
 
     print_graph_set(gs);
 
-    printf("\nIsomorphism check: %d, %d\n", check_isomorphism(gs, g1),
-	   check_isomorphism(gs, g2));
+    printf("\nIsomorphism check: %d, %d\n", check_isomorphism(gs, g2),
+	   check_isomorphism(gs, g3));
 }
 
 #endif
