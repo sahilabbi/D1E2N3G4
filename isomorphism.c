@@ -1,4 +1,5 @@
 #include "isomorphism.h"
+#include "graph_set.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -75,10 +76,24 @@ gsl_vector * project_vector(gsl_vector * v, gsl_vector ** vspace, int num_vector
     return ret;
 }
 
+//takes the absolute value of each value in v
+static void vector_abs(gsl_vector * v){
+    int i;
+    for(i = 0; (size_t) i < v->size; i++){
+	double val = gsl_vector_get(v, i);
+	if(val < 0) val = -val;
+	gsl_vector_set(v, i, val);
+    }
+}
+
+//For M_PI
+#include <math.h>
+
 gsl_vector * reduce_vector_space(gsl_vector ** vectors, int num_vectors){
     if(num_vectors == 1){
 	gsl_vector * ret = gsl_vector_alloc((*vectors)->size);
 	gsl_vector_memcpy(ret, vectors[0]);
+	vector_abs(ret);
 	return ret;
     }
     gsl_vector * standard_basis_vector = gsl_vector_calloc((*vectors)->size);
@@ -88,9 +103,17 @@ gsl_vector * reduce_vector_space(gsl_vector ** vectors, int num_vectors){
 	if(i > 0) gsl_vector_set(standard_basis_vector, i-1, 0);
 	gsl_vector_set(standard_basis_vector, i, 1);
 	gsl_vector * proj = project_vector(standard_basis_vector, vectors, num_vectors);
-	vector_normalize(proj);
+	double projLength = 0;
+	gsl_blas_ddot(proj, proj, &projLength);
 	double angle = 0;
+	if(float_equals(projLength, 0)){
+	    //If the basis vector is orthogonal to the space
+	    angle = M_PI / 2;
+	}
+	else {
+	vector_normalize(proj);
 	gsl_blas_ddot(standard_basis_vector, proj, &angle);
+	}
 	gsl_vector_set(ret, i, angle);
 
 	gsl_vector_free(proj);
@@ -149,9 +172,13 @@ static PartialPermutation * splitPermGroup(PermutationSet * permSet, PartialPerm
     free(leftPermIndexMap);
     free(rightPermIndexMap);
 
-    for(i = 0; i < permSet->size; i++)
-	if(!float_equals(leftIndices[i].value, rightIndices[i].value))
+    for(i = 0; i < permSet->size; i++){
+	if(!float_equals(leftIndices[i].value, rightIndices[i].value)){
+	    free(leftIndices);
+	    free(rightIndices);
 	    return NULL;
+	}
+    }
     
     PartialPermutation * ret = (PartialPermutation*) malloc(sizeof(PartialPermutation));
     ret->num_perm_sets = permSet->size;
@@ -214,6 +241,10 @@ PartialPermutation *combinePartialPermutations(PartialPermutation * acc, Partial
     PartialPermutation * temp;
     for(i = 0; i < perm->num_perm_sets; i++){
 	temp = splitPermGroup(&perm->permSets[i], acc);
+	if(temp == NULL){
+	    delete_permutation(ret);
+	    return NULL;
+	}
 	memcpy(&ret->permSets[ret->num_perm_sets],
 	       temp->permSets,
 	       temp->num_perm_sets * sizeof(PermutationSet));
@@ -475,9 +506,9 @@ PartialPermutation * isomorphism(graph_t * g1, graph_t * g2){
 }
 
 bool is_isomorphic(graph_t * g1, graph_t * g2){
-    PartialPermutation * iso = isomorphism(g1, g2);
+    gsl_permutation * iso = getIsomorphism(g1, g2);
     if(iso == NULL) return false;
-    delete_permutation(iso);
+    gsl_permutation_free(iso);
     return true;
 }
 
@@ -489,6 +520,20 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
     PartialPermutation * iso = isomorphism(g1,g2);
     if(iso == NULL) return NULL;
     int i,j;
+    
+    //used to make sure the two corresponding vertecies are mapped to each other
+    //the first perm group is v -> whichever vertex in g2 corresonds
+    //and the last one is all the remaining elements
+    PartialPermutation * extraRestriction = malloc(sizeof(PartialPermutation));
+    extraRestriction->num_perm_sets = 2;
+    extraRestriction->permSets = malloc(3 * sizeof(PermutationSet));
+    extraRestriction->permSets[0].leftSet = malloc(sizeof(int));
+    extraRestriction->permSets[0].rightSet = malloc(sizeof(int));
+    extraRestriction->permSets[0].size = 1;
+    extraRestriction->permSets[1].leftSet = malloc((NUM_NODES - 1) * sizeof(int));
+    extraRestriction->permSets[1].rightSet = malloc((NUM_NODES - 1) * sizeof(int));
+    extraRestriction->permSets[1].size = NUM_NODES - 1;
+    
     while(!isComplete(iso)){
 	//Select a vertex whose other isomorphism are not determined
 	int v = 0;
@@ -507,30 +552,56 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
 	int oppositeLinkValue = linkValue == 0 ? 1 : 0;
 	g1->adj[v][theLink] = oppositeLinkValue;
 	g1->adj[theLink][v] = oppositeLinkValue;
-	
+
+
+	extraRestriction->permSets[0].leftSet[0] = v;
+	extraRestriction->permSets[0].rightSet[0] = theLink;
+	int k = 0;
+	for(i = 0; i < NUM_NODES; i++){
+	    if(i == v) continue;
+	    extraRestriction->permSets[1].leftSet[k++] = i;
+	}
+
 	//Go through every vertex in g2 and try to get an isomorphism
 	bool done = false;
 	for(i = 0; i < currPermSet->size; i++){
-	    int u = currPermSet->leftSet[i];
-	    for(j = 0; j < currPermSet->size; j++){
-		if(j == i) continue;
-		//We're testing the link between u and testLink
-		int testLink = currPermSet->rightSet[j];
-		if(g2->adj[u][testLink] != linkValue) continue;
-		g2->adj[u][testLink] = oppositeLinkValue;
-		g2->adj[testLink][u] = oppositeLinkValue;
+	    int u = currPermSet->rightSet[i];
+	    for(j = 0; j < NUM_NODES; j++){
+		if(j == u) continue;
+		//We're testing the link between u and j
+		if(g2->adj[u][j] != linkValue) continue;
+		g2->adj[u][j] = oppositeLinkValue;
+		g2->adj[j][u] = oppositeLinkValue;
 		PartialPermutation * newIso = isomorphism(g1, g2);
+		g2->adj[u][j] = linkValue;
+		g2->adj[j][u] = linkValue;
 		if(newIso != NULL){
-		    PartialPermutation * temp = combinePartialPermutations(iso, newIso);
-		    delete_permutation(iso);
+		    PartialPermutation * temp1 = combinePartialPermutations(iso, newIso);
+		    extraRestriction->permSets[0].rightSet[0] = u;
+		    int l = 0;
+		    for(k = 0; k < NUM_NODES; k++){
+			if(k == u) continue;
+			extraRestriction->permSets[1].rightSet[l++] = k;
+		    }
+		    PartialPermutation * temp2 = combinePartialPermutations(temp1,
+									    extraRestriction);
+		    if(temp1 != NULL) delete_permutation(temp1);
 		    delete_permutation(newIso);
-		    iso = temp;
-		    done = true;
-		    break;
+		    if(temp2 != NULL){
+			delete_permutation(iso);
+			iso = temp2;
+			done = true;
+			break;
+		    }
 		}
 	    }
 	    if(done) break;
 	}
+	//Set the graph back to what it was
+	g1->adj[v][theLink] = linkValue;
+	g1->adj[theLink][v] = linkValue;
+
+	
 	//If none of the vertecies in g2 correspond, there is no ismorphism
 	//log the fact that the inital test was incorrect
 	if(!done){
@@ -544,6 +615,8 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
 	    return NULL;
 	}
     }
+    
+    delete_permutation(extraRestriction);
     //Now the partial permutation is a complete permutation
     gsl_permutation * leftPerm = gsl_permutation_alloc(NUM_NODES);
     gsl_permutation * rightPerm = gsl_permutation_alloc(NUM_NODES);
@@ -625,24 +698,40 @@ int main(){
 		      {0, 1, 1, 0, 0, 1},
 		      {1, 0, 1, 0, 1, 0}};
 
+    int test1[4][4] = {{0, 0, 0, 0},
+		       {0, 0, 1, 0},
+		       {0, 1, 0, 0},
+		       {0, 0, 0, 0}};
+    int test2[4][4] = {{0, 0, 0, 1},
+		       {0, 0, 0, 0},
+		       {0, 0, 0, 0},
+		       {1, 0, 0, 0}};
 
     graph_t * g1 = malloc(sizeof(graph_t));
     graph_t * g2 = malloc(sizeof(graph_t));
 
-    memcpy(g1->adj, iso1, sizeof(iso1));
-    memcpy(g2->adj, iso2, sizeof(iso2));
+    memcpy(&g1->adj[0][0], test1, sizeof(test1));
+    memcpy(&g2->adj[0][0], test2, sizeof(test2));
 
     gsl_permutation * theIso = getIsomorphism(g1, g2);
     int i;
-    for(i = 0; i < NUM_NODES; i++){
-	printf("%d ", theIso->data[i]);
+    if(theIso == NULL) printf("NULL\n");
+    else {
+	for(i = 0; i < NUM_NODES; i++){
+	    printf("%d ", theIso->data[i]);
+	}
+	printf("\n");
+	gsl_permutation_free(theIso);
     }
-    printf("\n");
-    gsl_permutation_free(theIso);
 
+    PartialPermutation * perm = isomorphism(g1, g2);
+    printf("Partial perm:\n");
+    print_permutation(perm);
+
+    printf("\nIso test: %d\n", is_isomorphic(g1, g2));
+	
     free(g1);
     free(g2);
-	
     
     return 0;
 }
@@ -659,7 +748,26 @@ int main(){
 	    g->adj[i][j] = 0;
 	}
     }
+    graph_set * gs = graph_set_alloc();
+    bool done = false;
+    while(!done){
+	if(!check_isomorphism(gs, g)){
+	    insert_graph(gs, g);
+	}
+	done = increment_graph(g);
+    }
 
+    int numGraphs = 0;
+    for(i = 0; i < gs->size; i++){
+	numGraphs += gs->iso_groups[i].num_graphs;
+    }
+    printf("Total graphs with N=%d: %d\n", NUM_NODES, numGraphs);
+    //    printf("Final Graph: \n");
+
+    //print_graph(g);
+
+    //    printf("\nThe Graphs:\n");
+    //    print_graph_set(gs);
 }
 
 #endif
