@@ -40,7 +40,7 @@ static void increment_cursor(int * i, int * j){
     if(is_protected(*i,*j)){
 	*i -= 1;
 	*j = NUM_NODES-1;
-	if(i == 0 && j == 0) return;
+	if(*i < 0) return;
     }
 }
 
@@ -75,7 +75,7 @@ bool increment_graph(graph_t * graph){
 	degree[i]--;
 	degree[j]--;
 	increment_cursor(&i,&j);
-	if(i == 0) return true;
+	if(i < 0) return true;
     }
     graph->adj[i][j] = 1;
     graph->adj[j][i] = 1;
