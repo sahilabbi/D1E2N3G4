@@ -1,4 +1,4 @@
 *.o
-*.c~
-*.o~
+*~
 exhuastive_search
+*.dSYM
