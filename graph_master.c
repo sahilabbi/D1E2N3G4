@@ -4,6 +4,7 @@
 #include "graph.h"
 #include "distance.h"
 #include "comp_graph.h"
+#include "graph_set.h"
 
 
 
@@ -13,24 +14,7 @@ static comp_graph	cgraph_mast[MAX_GRAPH_ARR];
 static int num_procs, graph_arr_size, n_graph_files;
 
 int lowest_diam = L; // defined in Makefile
-float lowest_dist = 99999.0;
-
-#define EPSILON 0.0001
-
-// copied for convenience,  original copy in graph.c
-static bool float_equals(double a, double b){
-    double diff = a - b;
-    if(diff < 0) diff = -diff;
-    return diff < EPSILON;
-}
-
-static int float_compare(double a, double b){
-    double diff = a - b;
-    if(diff > EPSILON) return 1;
-    if(diff < -EPSILON) return -1;
-    return 0;
-}
-
+unsigned int lowest_dist = L * NUM_NODES * NUM_NODES + 5;
 
 
 void
@@ -56,6 +40,7 @@ save_graphs_file()
 {
     char    fpath[100];
     sprintf(fpath, "%s%d.%s", FPATH, n_graph_files, "ori");
+    printf("Saving graph files to %s...\n", fpath);
     FILE* fp = fopen(fpath, "w");
 
     if(fp){
@@ -69,21 +54,35 @@ save_graphs_file()
     return 0;
 }
 
+#include <string.h>
+
 
 void
-add_graph(compress_graph* p)
+add_graph(graph_set * all_graphs, compress_graph* p)
 {
-	if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->avg_dist < lowest_dist)){
-		del_graph_files();
+    graph_t decompressed_graph;
+    comp_graph comp;
+    memcpy(&comp.comp[0], &p->comp[0], sizeof(p->comp));
+    Compress_graph(&decompressed_graph, &comp, 0);
+    /*printf("Adding graph:\n");
+    print_graph(&decompressed_graph);
+    printf("\n");*/
+	if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
+	    delete_graph_set(all_graphs);
+	    all_graphs = graph_set_alloc();
+	    insert_graph(all_graphs, &decompressed_graph);
+	    /*del_graph_files();
        		graph_arr_size = 1;
        		cgraph_mast[0] = *((comp_graph*)p);
-        	cgraph_mast[0] = *((comp_graph*)p);
+        	cgraph_mast[0] = *((comp_graph*)p);*/
        		lowest_diam = p->diameter;
-		lowest_dist= p->avg_dist;
-	} else if(p->diameter == lowest_diam && float_equals(p->avg_dist, lowest_dist)){
-        	cgraph_mast[graph_arr_size ++] = *((comp_graph*)p);
+		lowest_dist= p->sum_dist;
+	} else if(p->diameter == lowest_diam && p->sum_dist == lowest_dist){
+	    /*cgraph_mast[graph_arr_size ++] = *((comp_graph*)p);
 		if(graph_arr_size >= MAX_GRAPH_ARR)
-			save_graphs_file();
+		save_graphs_file();*/
+	    if(!check_isomorphism(all_graphs, &decompressed_graph))
+		insert_graph(all_graphs, &decompressed_graph);
     	} else {
 		// discard
 	}
@@ -95,54 +94,65 @@ add_graph(compress_graph* p)
 void
 generate_graphs()
 {
-	int	no_more_graphs=0;
-        int 	ierr;
-	int	recv_count=0;
+    int	no_more_graphs=0;
+    int 	ierr;
+    int	recv_count=0;
 	
-	int ng=0;
-	compress_graph	cg;
-      	MPI_Status status;
+    int ng=0;
+    compress_graph	cg;
+    MPI_Status status;
 
 
-	graph_t * g = initial_graph();
+    graph_t * g = initial_graph();
 
-	int i;
-	for(; ; ){
-	  if(no_more_graphs){
-		save_graphs_file();
-		break;
-	  }
-	  if(ng >= MAX_GRAPH_ARR){
-		save_graphs_file();
-		ng=0;
-	  }
-          for(i=1; i < num_procs; i++){
-		ng++;
-		if(true == increment_graph(g)){
-			printf("incr graphs returned false %d\n", graph_arr_size);
-			no_more_graphs=1;
-			break;
-		}
-		Compress_graph(g, (comp_graph*)&cg, 1);
-		// printf("gen graphs: bef send\n");
-                ierr = MPI_Send(&cg, sizeof(compress_graph), MPI_CHAR, 
-						i, COMP_DIST_TAG, MPI_COMM_WORLD);
-		// printf("gen graphs: aft send\n");
-          }
-          for(i=1; i<num_procs; i++){
-		  // printf("BEF-mpi-recv %d\n", i);
-                  ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, 
-                     MPI_ANY_SOURCE, MPI_ANY_TAG /*COMP_DIST_TAG*/, MPI_COMM_WORLD, &status);
-		  if(0 == (++recv_count) % 1000)
-		 	printf("%d AFT-mpi-recv %d Diam: %d Avg-Dist: %f %d\n", ng, i, cg.diameter, cg.avg_dist, recv_count);
-		  if(cg.diameter < lowest_diam || cg.diameter==lowest_diam){
-			add_graph(&cg);
-					  
-		  } else {
-				// disregard
-		  }
-	  }
+    graph_set * all_graphs = graph_set_alloc();
+
+    printf("Starting best average: %d\n", lowest_dist);
+    printf("num_procs: %d\n", num_procs);
+
+    int i;
+    for(; ; ){
+	if(no_more_graphs){
+	    printf("Printing out graphs...\n");
+	    print_graph_set(all_graphs);
+	    break;
 	}
+	/*if(ng >= MAX_GRAPH_ARR){
+	  save_graphs_file();
+	  ng=0;
+	  }*/
+	int num_sent = 1;
+	for(i=1; i < num_procs; i++){
+	    ng++;
+	    if(true == increment_graph(g)){
+		printf("incr graphs returned false %d\n", graph_arr_size);
+		no_more_graphs=1;
+		break;
+	    }
+	    Compress_graph(g, (comp_graph*)&cg, 1);
+	    //printf("gen graphs: bef send\n");
+	    ierr = MPI_Send(&cg, sizeof(compress_graph), MPI_CHAR, 
+			    i, COMP_DIST_TAG, MPI_COMM_WORLD);
+	    num_sent++;
+	    //printf("gen graphs: aft send\n");
+	}
+	for(i=1; i<num_sent; i++){
+	    // printf("BEF-mpi-recv %d\n", i);
+	    ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, 
+			     MPI_ANY_SOURCE, MPI_ANY_TAG /*COMP_DIST_TAG*/,
+			     MPI_COMM_WORLD, &status);
+	    if(0 == (++recv_count) % 1000)
+		printf("%d AFT-mpi-recv %d Diam: %d Avg-Dist: %d %d\n",
+		       ng, i, cg.diameter, cg.sum_dist, recv_count);
+	    //printf("Received graph, Diameter %d, Sum dists %d\n", cg.diameter, cg.sum_dist);
+	    if(cg.diameter < lowest_diam || cg.diameter==lowest_diam){
+		add_graph(all_graphs, &cg);
+					  
+	    } else {
+		// disregard
+	    }
+	}
+    }
 }
 
 // receives graph , computes diameter/distance and sends back to graph generator
@@ -159,11 +169,12 @@ process_distance_calcs()
 		ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, MPI_ANY_SOURCE, COMP_DIST_TAG, MPI_COMM_WORLD, &status);
 		// printf("process-dist: aft recv\n");
 		Compress_graph(&g, (comp_graph*)&cg, 0);
-		graph_info *info = getinfo((int*)g.adj, N);
-		// print_graph(&g);
+		graph_info *info = getinfo((int*)g.adj, NUM_NODES);
+		//printf("Recieved Graph:\n");
+		//print_graph(&g);
 		cg.diameter = info->diameter;
-		cg.avg_dist = (float)info->sum_of_distances / 56.0f;
-		// printf("Diameter: %d Average: %f\n", (int)cg.diameter, cg.avg_dist);
+		cg.sum_dist = info->sum_of_distances;
+		//printf("Diameter: %d Average: %d\n", (int)cg.diameter, cg.sum_dist);
                 ierr = MPI_Send(&cg, sizeof(compress_graph), MPI_CHAR, 0, COMP_DIST_TAG, MPI_COMM_WORLD);
 	}
 
@@ -195,9 +206,13 @@ main(int argc, char **argv)
 
 	}
 
+	printf("Process %d checking out\n", my_id);
+
 
 
      ierr = MPI_Finalize();
+
+     exit(0);
       
      return 0;
 }

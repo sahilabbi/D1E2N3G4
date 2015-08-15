@@ -18,8 +18,8 @@ comp_graph: comp_graph.c
 graph_test: graph_test.c  graph.c distance.c
 	$(MPICC) $(CFLAGS) -o $@ $^
 
-graph_master: graph_master.c  graph.c distance.c comp_graph.c
-	$(MPICC) $(CFLAGS) -o $@ $^
+graph_master: graph_master.c  graph.c distance.c comp_graph.c graph_set.c isomorphism.c
+	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 ISO_check: ISO_checker.c ISO_main.c graph.c distance.c comp_graph.c isomorphism.c
 	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

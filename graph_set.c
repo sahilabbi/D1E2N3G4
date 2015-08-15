@@ -25,7 +25,7 @@ void delete_graph_set(graph_set * gs){
     free(gs);
 }
 
-static int vector_compare(const void * a, const void * b){
+int vector_compare(const void * a, const void * b){
     gsl_vector * v1 = (gsl_vector *) a;
     gsl_vector * v2 = (gsl_vector *) b;
     size_t i;
@@ -36,7 +36,7 @@ static int vector_compare(const void * a, const void * b){
     return 0;
 }
 
-static int isospectral_group_compare(const void * a, const void * b){
+int isospectral_group_compare(const void * a, const void * b){
     isospectral_group * gr1 = (isospectral_group *) a;
     isospectral_group * gr2 = (isospectral_group *) b;
     return vector_compare(gr1->eigenvalues, gr2->eigenvalues);
