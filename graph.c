@@ -68,7 +68,10 @@ bool increment_graph(graph_t * graph){
     int jStart = NUM_NODES-1;
     //incase the first edge selected is one of the initial edges
     if(is_protected(iStart,jStart)) increment_cursor(&iStart,&jStart);
+    //If testing isomorphisms, we don't want the graphs to all be regular
+#ifndef ISO_TEST
     do {
+#endif
 	i = iStart;
 	j = jStart;
 	while(graph->adj[i][j] == 1){
@@ -89,7 +92,9 @@ bool increment_graph(graph_t * graph){
 	//	int k;
 	//	for(k = 0; k < NUM_NODES; k++) printf("%d ", degree[k]);
 	//	printf("\nis_regular(degree): %d\n\n", is_regular(&degree[0]));
+#ifndef ISO_TEST
     } while(!is_regular(&degree[0]));
+#endif
     return false;
 }
 
