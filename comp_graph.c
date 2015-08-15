@@ -23,8 +23,8 @@ int main()
 
 	int i,j;
 
-	for(i=0; i<N; i++){
-		for(j=0; j<N; j++){
+	for(i=0; i<NUM_NODES; i++){
+		for(j=0; j<NUM_NODES; j++){
 
 			if(i==j || i>j)
 				mat.adj[i][j] = 1;
@@ -41,8 +41,8 @@ int main()
 	}
 
 	Compress_graph(&d_mat,(comp_graph*)&c, 0);
-	for(i=0; i<N; i++){
-		for(j=0; j<N; j++){
+	for(i=0; i<NUM_NODES; i++){
+		for(j=0; j<NUM_NODES; j++){
 			printf("%d ",d_mat.adj[i][j]);
 		}
 		printf("\n");
@@ -66,8 +66,8 @@ Compress_graph(graph_t* p, comp_graph *Compress, int is_compress)
 	if(is_compress)
 		memset(Compress->comp, 0, C);
 
-		for(int i=0; i<N; i++){
-		   for(int j=0; j<N; j++){
+		for(int i=0; i<NUM_NODES; i++){
+		   for(int j=0; j<NUM_NODES; j++){
 			offset = n/8;
 			if(is_compress){
 				if(p->adj[i][j])
