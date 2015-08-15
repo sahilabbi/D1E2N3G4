@@ -1,0 +1,44 @@
+3 files in total
+
+Graph generation and Distance/Diameter calculation
+==================================================
+graph_master.c
+graphs are compressed to bit-mode ( graph dimension 8 needs 8 bytes, 32 bytes for dimension=16, 128 bytes for dimension=32
+the root node calls increment_graph in a loop, compresses the graph and sends to the distance calculators
+Each MAX_GRAPH_ARR graphs meeting lowest diameter/avg_distance criteria are saved in FPATH/i.ori files where i increments 0 onwards
+
+
+Isomorphism Checker
+==================================================
+ISO_main.c ISO_checker.c // implemented, yet to be debugged/tested
+
+Lets say we have 1000 available nodes besides root node.
+The root node reads chunks of 1000 graphs from i.ori files and creates an array of graph pairs for each node to check for isomorphism using following logic:
+Lets say the graphs are numbered 1 thru 1000
+Node 1 gets the pairs: 1-2, 1-3, 1-4, 1-5........ 	1-1000
+Node 2 gets the pairs: 2-3, 2-4, 2-5, 2-6........	2-1000
+Node 3 gets the pairs: 3-4, 3-5, 3-6....                3-1000
+Node 999 gets the pair: 999-1000
+
+If node N finds any pair to be isomorphic, it returns a value of -1 and the graph at array[N] is discarded.
+Thus if node 3, node 8 and node 11 do not find isomorphic pairs, then graphs 3, 8 and 11 are non-isomorphic.
+Note: The distribution of calculations across nodes are not optimized ( the last node gets 1 calculation, first node gets 1000 calculations ) hence on average 
+we will spend twice the time.
+
+The original list of 1000 graphs will be replaced by 3 graphs ( 3,8,11 ) in the file ( lets call it compressed file )
+Lets say the next batch of 1000 graphs finds 5 non-isomorphic graphs ( 1005, 1100, 1199, 1555, 1888 ).
+The compressed file will now have (3,8,11,1005,1100,1199,1555,1888).
+We will go thru the entire file and the result will be a compressed file where each batch of 1000 returns subset of non-iso graphs in that universe of 1000 graphs
+
+After the first iteration, we will re-process the compressed file, keeping in mind that we do not recheck graphs from the same batch. That is: graph 3 will be paired with 1005 
+but not with 8 or 11.
+
+We repeat this process until the file fails to reduce further. This resultant file will be saved to disk as FPATH/i.iso
+
+We iterate the process through all the .ori files and create corresponding .iso files.
+
+The next step is to check for isomorphism across multiple .iso files which is yet to be implemented.
+NOTE MAX_GRAPH_ARR could become a run time parameter
+
+
+PLEASE COMMENT IF THIS APPROACH MAKES SENSE
