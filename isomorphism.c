@@ -811,6 +811,7 @@ int main(){
 #ifdef ISO_TEST
 
 int main(){
+    printf("Getting all non-isomorphic graphs of size %d\n", NUM_NODES);
     graph_t * g = (graph_t *) malloc(sizeof(graph_t));
     int i,j;
     for(i = 0; i < NUM_NODES; i++){
