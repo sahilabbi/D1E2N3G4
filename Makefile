@@ -21,7 +21,7 @@ graph_test: graph_test.c  graph.c distance.c
 graph_master: graph_master.c  graph.c distance.c comp_graph.c
 	$(MPICC) $(CFLAGS) -o $@ $^
 
-ISO_check: ISO_checker.c ISO_main.c graph.c distance.c comp_graph.c
+ISO_check: ISO_checker.c ISO_main.c graph.c distance.c comp_graph.c isomorphism.c
 	$(MPICC) $(CFLAGS) -o $@ $^
 
 increment_test: graph.c graph.h

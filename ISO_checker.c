@@ -10,6 +10,7 @@
 #include "graph.h"
 #include "distance.h"
 #include "comp_graph.h"
+#include "isomorphism.h"
 
 void ISOmain();
 
@@ -18,7 +19,7 @@ int num_ISOprocs;
 static int
 iso_check(graph_t *pg1, graph_t *pg2)
 {
-	return 1;
+    return is_isomorphic(pg1, pg2);
 }
 
 int
