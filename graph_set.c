@@ -9,6 +9,7 @@ graph_set * graph_set_alloc(){
     graph_set * ret = malloc(sizeof(graph_set));
     ret->iso_groups = NULL;
     ret->size = 0;
+    ret->amount_alloced = 0;
     return ret;
 }
 
@@ -85,15 +86,29 @@ void insert_graph(graph_set * gs, graph_t * g){
 
 	//allocate the extra memory for the new set
 	gs->size++;
-	gs->iso_groups = realloc(gs->iso_groups, gs->size * sizeof(isospectral_group));
+	if(gs->size > gs->amount_alloced){
+	    if(gs->amount_alloced == 0) gs->amount_alloced = 1;
+	    else gs->amount_alloced *= 2;
+	    gs->iso_groups = realloc(gs->iso_groups,
+				     gs->amount_alloced * sizeof(isospectral_group));
+	}
 
-	//Inserting the new group
-	memcpy(&gs->iso_groups[gs->size - 1], newGroup, sizeof(isospectral_group));
+	//Shifting the groups to the right until we reach the spot for the new group
+	int i;
+	for(i = gs->size - 1; i > 0; i--){
+	    //If the next group to be shifted is less than newGroup, insert newGroup at index i
+	    if(isospectral_group_compare(&gs->iso_groups[i-1], newGroup) == -1){
+		memcpy(&gs->iso_groups[i], newGroup, sizeof(isospectral_group));
+		break;
+	    }
+	    else
+		memcpy(&gs->iso_groups[i], &gs->iso_groups[i - 1], sizeof(isospectral_group));
+	}
+	//If newGroup is smaller than every element in the group
+	if(i == 0) memcpy(gs->iso_groups, newGroup, sizeof(isospectral_group));
+
 	//removes only the top-level elements so the elements in gs are not deleted
 	free(newGroup);
-
-	//resort gs
-	qsort(gs->iso_groups, gs->size, sizeof(isospectral_group), isospectral_group_compare);
     }
     else { //The eigenvalues are already in the set
 	//reallocate the memory to allow for the new graph

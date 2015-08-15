@@ -18,6 +18,7 @@ typedef struct
 {
     isospectral_group * iso_groups;
     size_t size;
+    size_t amount_alloced;
 } graph_set;
 
 graph_set * graph_set_alloc();
