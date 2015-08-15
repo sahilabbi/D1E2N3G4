@@ -533,7 +533,12 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
     extraRestriction->permSets[1].leftSet = malloc((NUM_NODES - 1) * sizeof(int));
     extraRestriction->permSets[1].rightSet = malloc((NUM_NODES - 1) * sizeof(int));
     extraRestriction->permSets[1].size = NUM_NODES - 1;
-    
+
+    /*printf("Started with inital permutation:\n");
+    print_permutation(iso);
+    printf("\n");*/
+
+    bool done = false;
     while(!isComplete(iso)){
 	//Select a vertex whose other isomorphism are not determined
 	int v = 0;
@@ -545,17 +550,33 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
 		break;
 	    }
 	}
-	//Remove or add one link to v
-	//theLink holds which link is modified
-	int theLink = currPermSet->leftSet[1];
-	int linkValue = g1->adj[v][theLink];
-	int oppositeLinkValue = linkValue == 0 ? 1 : 0;
-	g1->adj[v][theLink] = oppositeLinkValue;
-	g1->adj[theLink][v] = oppositeLinkValue;
+	
+	//Remove or add two links to v
+	//theLink1 contains a link from withing the same perm set as v
+	int theLink1 = currPermSet->leftSet[1];
+	int link1Value = g1->adj[v][theLink1];
+	int oppositeLink1Value = link1Value == 0 ? 1 : 0;
+	
+	//theLink2Set is the index of the permutation set from which
+	//the second link (theLink2) comes from
+	int theLink2Set = 0;
+	if(i == 0) theLink2Set++;
+	//Incase there is only one perm set, so theLink2 must come from
+	//the same set as v
+	int theLink2;
+	if(iso->num_perm_sets == 1){
+	    theLink2Set = 0;
+	    theLink2 = iso->permSets[theLink2Set].leftSet[2];
+	}
+	else {
+	    theLink2 = iso->permSets[theLink2Set].leftSet[0];
+	}
+	int link2Value = g1->adj[v][theLink2];
+	int oppositeLink2Value = link2Value == 0 ? 1 : 0;
+
 
 
 	extraRestriction->permSets[0].leftSet[0] = v;
-	extraRestriction->permSets[0].rightSet[0] = theLink;
 	int k = 0;
 	for(i = 0; i < NUM_NODES; i++){
 	    if(i == v) continue;
@@ -563,43 +584,83 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
 	}
 
 	//Go through every vertex in g2 and try to get an isomorphism
-	bool done = false;
+	done = false;
 	for(i = 0; i < currPermSet->size; i++){
 	    int u = currPermSet->rightSet[i];
-	    for(j = 0; j < NUM_NODES; j++){
-		if(j == u) continue;
-		//We're testing the link between u and j
-		if(g2->adj[u][j] != linkValue) continue;
-		g2->adj[u][j] = oppositeLinkValue;
-		g2->adj[j][u] = oppositeLinkValue;
-		PartialPermutation * newIso = isomorphism(g1, g2);
-		g2->adj[u][j] = linkValue;
-		g2->adj[j][u] = linkValue;
-		if(newIso != NULL){
-		    PartialPermutation * temp1 = combinePartialPermutations(iso, newIso);
+	    for(j = 0; j < currPermSet->size; j++){
+		if(j == i) continue;
+		int testLink1 = currPermSet->rightSet[j];
+		//We're testing the link between u and testLink1
+		//to match with the link between v and theLink
+		if(g2->adj[u][testLink1] != link1Value) continue;
+		//Remove both the links we're comparing
+		g1->adj[v][theLink1] = oppositeLink1Value;
+		g1->adj[theLink1][v] = oppositeLink1Value;
+		g2->adj[u][testLink1] = oppositeLink1Value;
+		g2->adj[testLink1][u] = oppositeLink1Value;
+		//Get the new isomorphism
+		PartialPermutation * newIso1 = isomorphism(g1, g2);
+		//Reset the links back to what they were
+		g1->adj[v][theLink1] = link1Value;
+		g1->adj[theLink1][v] = link1Value;
+		g2->adj[u][testLink1] = link1Value;
+		g2->adj[testLink1][u] = link1Value;
+		//If these links didn't work out, try again
+		if(newIso1 == NULL) continue;
+		for(k = 0; k < iso->permSets[theLink2Set].size; k++){
+		    int testLink2 = iso->permSets[theLink2Set].rightSet[k];
+		    if(g2->adj[u][testLink2] != link2Value) continue;
+		    //Remove the links we're comparing
+		    g1->adj[v][theLink2] = oppositeLink2Value;
+		    g1->adj[theLink2][v] = oppositeLink2Value;
+		    g2->adj[u][testLink2] = oppositeLink2Value;
+		    g2->adj[testLink2][u] = oppositeLink2Value;
+		    //Get the new ismoorphism
+		    PartialPermutation * newIso2 = isomorphism(g1, g2);
+		    //Reset the links back to what they were
+		    g1->adj[v][theLink2] = link2Value;
+		    g1->adj[theLink2][v] = link2Value;
+		    g2->adj[u][testLink2] = link2Value;
+		    g2->adj[testLink2][u] = link2Value;
+
+		    if(newIso2 == NULL) continue;
+
+		    //We now know that an isomorphism carries v to u
+
+		    //Add info from the two ismorphisms (newIso1 and newIso2)
+		    PartialPermutation * temp1 = combinePartialPermutations(iso, newIso1);
+		    PartialPermutation * temp2 = combinePartialPermutations(temp1, newIso2);
+		    //Prepare extraRestriction, which ensures [v] -> [u] is in the final permutation
 		    extraRestriction->permSets[0].rightSet[0] = u;
 		    int l = 0;
 		    for(k = 0; k < NUM_NODES; k++){
 			if(k == u) continue;
 			extraRestriction->permSets[1].rightSet[l++] = k;
 		    }
-		    PartialPermutation * temp2 = combinePartialPermutations(temp1,
+		    PartialPermutation * temp3 = combinePartialPermutations(temp2,
 									    extraRestriction);
+		    //Sometimes the permutations don't combine properly so we
+		    //cannot assume that temp1 and temp2 aren't NULL
 		    if(temp1 != NULL) delete_permutation(temp1);
-		    delete_permutation(newIso);
-		    if(temp2 != NULL){
+		    if(temp2 != NULL) delete_permutation(temp2);
+		    delete_permutation(newIso1);
+		    delete_permutation(newIso2);
+		    if(temp3 != NULL){
 			delete_permutation(iso);
-			iso = temp2;
+			/*printf("Found that an isomorphism carries %d to %d\n", v, u);
+			printf("New partial permutation:\n");
+			print_permutation(temp3);
+			printf("\n");*/
+			iso = temp3;
 			done = true;
 			break;
 		    }
 		}
+		if(done) break;
 	    }
-	    if(done) break;
+	    if(done) break;	    
 	}
-	//Set the graph back to what it was
-	g1->adj[v][theLink] = linkValue;
-	g1->adj[theLink][v] = linkValue;
+
 
 	
 	//If none of the vertecies in g2 correspond, there is no ismorphism
@@ -698,14 +759,23 @@ int main(){
 		      {0, 1, 1, 0, 0, 1},
 		      {1, 0, 1, 0, 1, 0}};
 
-    int test1[4][4] = {{0, 0, 0, 0},
-		       {0, 0, 1, 0},
-		       {0, 1, 0, 0},
-		       {0, 0, 0, 0}};
-    int test2[4][4] = {{0, 0, 0, 1},
-		       {0, 0, 0, 0},
-		       {0, 0, 0, 0},
-		       {1, 0, 0, 0}};
+    int test1[8][8] = {{0,0,0,0,0,1,0,1},
+		       {0,0,1,1,0,0,0,0},
+		       {0,1,0,0,0,0,0,0},
+		       {0,1,0,0,0,1,1,0},
+		       {0,0,0,0,0,0,1,1},
+		       {1,0,0,1,0,0,0,0},
+		       {0,0,0,1,1,0,0,0},
+		       {1,0,0,0,1,0,0,0}};
+	    
+    int test2[8][8] = {{0,0,0,0,0,0,0,1},
+		       {0,0,0,0,0,1,1,0},
+		       {0,0,0,0,1,0,1,0},
+		       {0,0,0,0,1,1,0,0},
+		       {0,0,1,1,0,0,0,0},
+		       {0,1,0,1,0,0,0,0},
+		       {0,1,1,0,0,0,0,1},
+		       {1,0,0,0,0,0,1,0}};
 
     graph_t * g1 = malloc(sizeof(graph_t));
     graph_t * g2 = malloc(sizeof(graph_t));
