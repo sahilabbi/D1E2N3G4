@@ -27,12 +27,13 @@ print_graph_array()
 void
 del_graph_files()
 {
-	for(int i=0; i < n_graph_files; i++){
-    		char    fpath[100];
-    		sprintf(fpath, "%s%d.%s", FPATH, i, "ori");
-		unlink(fpath);
-	}
-	n_graph_files=0;
+    int i;
+    for(i=0; i < n_graph_files; i++){
+	char    fpath[100];
+	sprintf(fpath, "%s%d.%s", FPATH, i, "ori");
+	unlink(fpath);
+    }
+    n_graph_files=0;
 }
 
 int
