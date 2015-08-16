@@ -72,8 +72,8 @@ void insert_graph(graph_set * gs, graph_t * g){
 
     gsl_matrix * mat = graph_to_matrix(g);
 
-    printf("Eigenvalue size: %d\nMatrix size: %dx%d\n", eigval->size,
-	   mat->size1, mat->size2);
+    //printf("Eigenvalue size: %d\nMatrix size: %dx%d\n", eigval->size,
+//	   mat->size1, mat->size2);
 
     gsl_eigen_symm(mat, eigval, workspace);
     gsl_eigen_symm_free(workspace);

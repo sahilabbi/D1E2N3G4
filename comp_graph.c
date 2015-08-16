@@ -66,8 +66,9 @@ Compress_graph(graph_t* p, comp_graph *Compress, int is_compress)
 	if(is_compress)
 		memset(Compress->comp, 0, COMPRESS_SIZE);
 
-		for(int i=0; i<NUM_NODES; i++){
-		   for(int j=0; j<NUM_NODES; j++){
+	int i,j;
+		for(i=0; i<NUM_NODES; i++){
+		   for(j=0; j<NUM_NODES; j++){
 			offset = n/8;
 			if(is_compress){
 				if(p->adj[i][j])
