@@ -121,8 +121,8 @@ generate_graphs()
     for(; ; ){
 	if(no_more_graphs){
 	    printf("Printing out graphs...\n");
-	    print_graph_set(*all_graphs);
-	    printf("\n");
+	    //print_graph_set(*all_graphs);
+	    //printf("\n");
 	    print_graph_set_compressed(*all_graphs);
 	    break;
 	}
@@ -162,6 +162,9 @@ generate_graphs()
 	    }
 	}
     }
+    for(i = 1; i < num_procs; i++){
+	ierr = MPI_Send(NULL, 0, MPI_CHAR, i, END_TASK_TAG, MPI_COMM_WORLD);
+    }
 }
 
 // receives graph , computes diameter/distance and sends back to graph generator
@@ -175,7 +178,9 @@ process_distance_calcs()
 
 	for( ; ; ){
 		// printf("process-dist: bef recv\n");
-		ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, MPI_ANY_SOURCE, COMP_DIST_TAG, MPI_COMM_WORLD, &status);
+		ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		//If the program is over, end the program
+		if(status.MPI_TAG == END_TASK_TAG) break;
 		// printf("process-dist: aft recv\n");
 		Compress_graph(&g, (comp_graph*)&cg, 0);
 		graph_info *info = getinfo((int*)g.adj, NUM_NODES);
@@ -221,7 +226,5 @@ main(int argc, char **argv)
 
      ierr = MPI_Finalize();
 
-     exit(0);
-      
      return 0;
 }

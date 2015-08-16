@@ -28,6 +28,7 @@ void Compress_graph(graph_t *p, comp_graph *Compress, int is_compress);
 
 #define COMP_DIST_TAG 	0 
 #define CHECK_ISO_TAG	0
+#define END_TASK_TAG    1
 
 #define FPATH   "/tmp/fgraph/"
 
