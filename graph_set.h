@@ -30,6 +30,9 @@ void print_graph_set_compressed(graph_set * gs);
 //returns a pointer to the isospectral group containing eigenval
 //returns NULL if gs contains no such isospectral group
 isospectral_group * find_eigenvalues(graph_set * gs, gsl_vector * eigenval);
+//comparision functions for find_eigenvalues
+int vector_compare(const void * a, const void * b);
+int isospectral_group_compare(const void * a, const void * b);
 
 void insert_graph(graph_set * gs, graph_t * g);
 bool check_isomorphism(graph_set * gs, graph_t * g);
