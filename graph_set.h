@@ -4,12 +4,13 @@
 
 #include "graph.h"
 #include "isomorphism.h"
+#include "comp_graph.h"
 #include <gsl/gsl_vector.h>
 
 typedef struct
 {
     gsl_vector * eigenvalues;
-    graph_t ** graphs;
+    comp_graph ** graphs;
     size_t num_graphs;
 } isospectral_group;
 

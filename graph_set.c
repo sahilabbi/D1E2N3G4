@@ -79,10 +79,10 @@ void insert_graph(graph_set * gs, graph_t * g){
 	//Create the new group to be added to gs
 	isospectral_group * newGroup = malloc(sizeof(isospectral_group));
 	newGroup->eigenvalues = eigval;
-	newGroup->graphs = (graph_t **) malloc(sizeof(graph_t *));
-	newGroup->graphs[0] = (graph_t *) malloc(sizeof(graph_t));
+	newGroup->graphs = (comp_graph **) malloc(sizeof(comp_graph));
+	newGroup->graphs[0] = (comp_graph *) malloc(sizeof(comp_graph));
 	newGroup->num_graphs = 1;
-	memcpy(&newGroup->graphs[0]->adj[0][0], &g->adj[0][0], sizeof(g->adj));
+	Compress_graph(g, newGroup->graphs[0], 1);
 
 	//allocate the extra memory for the new set
 	gs->size++;
@@ -113,11 +113,11 @@ void insert_graph(graph_set * gs, graph_t * g){
     else { //The eigenvalues are already in the set
 	//reallocate the memory to allow for the new graph
 	index->num_graphs++;
-	index->graphs = (graph_t **) realloc(index->graphs, index->num_graphs * sizeof(graph_t *));
-	index->graphs[index->num_graphs - 1] = (graph_t *) malloc(sizeof(graph_t));
+	index->graphs = (comp_graph **) realloc(index->graphs, index->num_graphs * sizeof(comp_graph *));
+	index->graphs[index->num_graphs - 1] = (comp_graph *) malloc(sizeof(graph_t));
 
 	//Inserting the graph
-	memcpy(&index->graphs[index->num_graphs - 1]->adj[0][0], &g->adj[0][0], sizeof(g->adj));
+	Compress_graph(g, index->graphs[index->num_graphs - 1], 1);
     }
 }
 
@@ -137,9 +137,11 @@ bool check_isomorphism(graph_set * gs, graph_t * g){
     gsl_vector_free(eigval);
     //If the eigenvalues are not in the set, the graph is not ismorphic
     if(index == NULL) return false;
+    graph_t decompressed_graph;
     int i;
     for(i = 0; (size_t) i < index->num_graphs; i++){
-	if(is_isomorphic(index->graphs[i], g)) return true;
+	Compress_graph(&decompressed_graph, index->graphs[i], 0);
+	if(is_isomorphic(&decompressed_graph, g)) return true;
     }
     return false;
 }
@@ -152,8 +154,10 @@ static void print_isospectral_group(isospectral_group * gr){
     print_vector(gr->eigenvalues);
     printf("\nGraphs:\n");
     int i;
+    graph_t decompressed_graph;
     for(i = 0; (size_t) i < gr->num_graphs; i++){
-	print_graph(gr->graphs[i]);
+	Compress_graph(&decompressed_graph, gr->graphs[i], 0);
+	print_graph(&decompressed_graph);
 	printf("\n");
     }
 }
