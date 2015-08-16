@@ -36,7 +36,7 @@ int main()
 
 	}
 	Compress_graph(&mat, (comp_graph*)&c, 1);
-	for(i=0; i<C; i++){
+	for(i=0; i<COMPRESS_SIZE; i++){
 		printf("%d\n", c.comp[i]);
 	}
 
@@ -64,7 +64,7 @@ Compress_graph(graph_t* p, comp_graph *Compress, int is_compress)
 	char flag[8] = {1,2,4,8,16,32,64,128};
 
 	if(is_compress)
-		memset(Compress->comp, 0, C);
+		memset(Compress->comp, 0, COMPRESS_SIZE);
 
 		for(int i=0; i<NUM_NODES; i++){
 		   for(int j=0; j<NUM_NODES; j++){
