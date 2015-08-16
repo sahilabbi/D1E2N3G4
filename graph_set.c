@@ -186,7 +186,7 @@ void print_graph_set(graph_set * gs){
 
 //switches the order of the bits
 //See Hacker's Delight p. 101
-static int flip_byte(char c){
+static unsigned char flip_byte(unsigned char c){
     char x = c;
     x = (x & 0x55) << 1 | (x & 0xAA) >> 1;
     x = (x & 0x33) << 2 | (x & 0xCC) >> 2;
