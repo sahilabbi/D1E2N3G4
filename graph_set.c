@@ -44,10 +44,14 @@ int isospectral_group_compare(const void * a, const void * b){
 }
 
 isospectral_group * find_eigenvalues(graph_set * gs, gsl_vector * eigenval){
-    // printf("Got here!\n");
-    //printf("gs->size: %d\n", gs->size);
-    //printf("gs->iso_groups->eigenvalues: %d\n", gs->iso_groups->eigenvalues);
-    //printf("\n\n");
+    if(gs->size == 0) return NULL;
+    //printf("Got here!\n");
+    /*printf("gs: %d\n", gs);
+    printf("gs->size: %d\n", gs->size);
+    printf("gs->iso_groups: %d\n", gs->iso_groups);
+    printf("gs->iso_groups->eigenvalues: %d\n", gs->iso_groups->eigenvalues);
+    print_vector(gs->iso_groups->eigenvalues);
+    printf("\n\n");*/
     isospectral_group key = {.eigenvalues = eigenval,
 			     .graphs = NULL,
 			     .num_graphs = 0};
@@ -68,13 +72,16 @@ void insert_graph(graph_set * gs, graph_t * g){
 
     gsl_matrix * mat = graph_to_matrix(g);
 
+    printf("Eigenvalue size: %d\nMatrix size: %dx%d\n", eigval->size,
+	   mat->size1, mat->size2);
+
     gsl_eigen_symm(mat, eigval, workspace);
     gsl_eigen_symm_free(workspace);
     gsl_matrix_free(mat);
 
     gsl_sort_vector(eigval);
 
-    /*    printf("Inserting Vector:\n");
+    /*   printf("Inserting Vector:\n");
     print_vector(eigval);
     printf("\n"); */
 
@@ -83,7 +90,7 @@ void insert_graph(graph_set * gs, graph_t * g){
 	//Create the new group to be added to gs
 	isospectral_group * newGroup = malloc(sizeof(isospectral_group));
 	newGroup->eigenvalues = eigval;
-	newGroup->graphs = (comp_graph **) malloc(sizeof(comp_graph));
+	newGroup->graphs = (comp_graph **) malloc(sizeof(comp_graph *));
 	newGroup->graphs[0] = (comp_graph *) malloc(sizeof(comp_graph));
 	newGroup->num_graphs = 1;
 	Compress_graph(g, newGroup->graphs[0], 1);
@@ -177,11 +184,20 @@ void print_graph_set(graph_set * gs){
     }
 }
 
+//switches the order of the bits
+//See Hacker's Delight p. 101
+static int flip_byte(char c){
+    char x = c;
+    x = (x & 0x55) << 1 | (x & 0xAA) >> 1;
+    x = (x & 0x33) << 2 | (x & 0xCC) >> 2;
+    x = (x & 0x0F) << 4 | (x & 0xF0) >> 4;
+    return x;
+}
 
 static void print_graph_compressed(comp_graph * cg){
     int i;
     for(i = 0; i < COMPRESS_SIZE; i++){
-	printf("%02x", cg->comp[i]);
+	printf("%02x", flip_byte(cg->comp[i]));
     }
 }
 
