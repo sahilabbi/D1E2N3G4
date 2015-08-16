@@ -44,6 +44,10 @@ int isospectral_group_compare(const void * a, const void * b){
 }
 
 isospectral_group * find_eigenvalues(graph_set * gs, gsl_vector * eigenval){
+    // printf("Got here!\n");
+    //printf("gs->size: %d\n", gs->size);
+    //printf("gs->iso_groups->eigenvalues: %d\n", gs->iso_groups->eigenvalues);
+    //printf("\n\n");
     isospectral_group key = {.eigenvalues = eigenval,
 			     .graphs = NULL,
 			     .num_graphs = 0};
@@ -118,6 +122,9 @@ void insert_graph(graph_set * gs, graph_t * g){
 
 	//Inserting the graph
 	Compress_graph(g, index->graphs[index->num_graphs - 1], 1);
+
+	//Since the vector was already in the set we can free the memory
+	gsl_vector_free(eigval);
     }
 }
 
@@ -167,6 +174,29 @@ void print_graph_set(graph_set * gs){
     for(i = 0; (size_t) i < gs->size; i++){
 	print_isospectral_group(&gs->iso_groups[i]);
 	printf("\n\n");
+    }
+}
+
+
+static void print_graph_compressed(comp_graph * cg){
+    int i;
+    for(i = 0; i < COMPRESS_SIZE; i++){
+	printf("%02x", cg->comp[i]);
+    }
+}
+
+static void print_isospectral_group_compressed(isospectral_group * gr){
+    int i;
+    for(i = 0; (size_t) i < gr->num_graphs; i++){
+	print_graph_compressed(gr->graphs[i]);
+	printf("\n");
+    }
+}
+
+void print_graph_set_compressed(graph_set * gs){
+    int i;
+    for(i = 0; (size_t) i < gs->size; i++){
+	print_isospectral_group_compressed(&gs->iso_groups[i]);
     }
 }
 

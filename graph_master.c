@@ -8,7 +8,7 @@
 
 
 
-static comp_graph	cgraph_mast[MAX_GRAPH_ARR];
+static comp_graph     cgraph_mast[MAX_GRAPH_ARR];
 
 
 static int num_procs, graph_arr_size, n_graph_files;
@@ -68,6 +68,7 @@ add_graph(graph_set * all_graphs, compress_graph* p)
     print_graph(&decompressed_graph);
     printf("\n");*/
 	if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
+	    printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
 	    delete_graph_set(all_graphs);
 	    all_graphs = graph_set_alloc();
 	    insert_graph(all_graphs, &decompressed_graph);
@@ -114,7 +115,7 @@ generate_graphs()
     for(; ; ){
 	if(no_more_graphs){
 	    printf("Printing out graphs...\n");
-	    print_graph_set(all_graphs);
+	    print_graph_set_compressed(all_graphs);
 	    break;
 	}
 	/*if(ng >= MAX_GRAPH_ARR){
