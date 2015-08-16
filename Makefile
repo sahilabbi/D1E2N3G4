@@ -1,10 +1,10 @@
 MPICC ?= mpicc 
-CFLAGS += -Wall -O3 -I .
+CFLAGS += -Wall -I .
 LDFLAGS += -lgsl -lgslcblas -lm
 NAME = exhuastive_search
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-N ?= 8
+N ?= 5
 K ?= 3
 L ?= 3
 
@@ -33,8 +33,8 @@ increment_test1: graph.c graph.h
 matrix_test: isomorphism.c isomorphism.h graph.h graph.c
 	gcc $(CFLAGS) -o $(NAME) -DMATRIX_TEST isomorphism.c graph.c $(LDFLAGS)
 
-iso_test: isomorphism.c isomorphism.h graph.c graph.h
-	gcc $(CFLAGS) -o $(NAME) -DISO_TEST isomorphism.c graph.c graph_set.c $(LDFLAGS)
+iso_test: isomorphism.c isomorphism.h graph.c graph.h comp_graph.c comp_graph.h
+	gcc $(CFLAGS) -o $(NAME) -DISO_TEST isomorphism.c graph.c graph_set.c comp_graph.c $(LDFLAGS)
 
 graph_set_test: graph.c graph.h graph_set.c graph_set.h isomorphism.c isomorphism.h comp_graph.c comp_graph.h
 	gcc $(CFLAGS) -o $(NAME) -DGRAPH_SET_TEST graph_set.c graph.c isomorphism.c comp_graph.c $(LDFLAGS)

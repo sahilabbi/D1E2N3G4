@@ -392,7 +392,13 @@ PartialPermutation * isomorphism(graph_t * g1, graph_t * g2){
     int i;
     for(i = 0; i < NUM_NODES; i++){
 	if(!float_equals(gsl_vector_get(eigval1, i),
-			 gsl_vector_get(eigval2, i))) return NULL;
+			 gsl_vector_get(eigval2, i))){
+	    gsl_vector_free(eigval1);
+	    gsl_vector_free(eigval2);
+	    gsl_matrix_free(eigvec1);
+	    gsl_matrix_free(eigvec2);
+	    return NULL;
+	}
     }
     //Since the two vectors are equal, we no longer need the second one
     gsl_vector_free(eigval2);
@@ -667,6 +673,7 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
 	//log the fact that the inital test was incorrect
 	if(!done){
 	    delete_permutation(iso);
+	    delete_permutation(extraRestriction);
 	    printf("Could not find isomorphism between two graphs\n");
 	    printf("g1:\n");
 	    print_graph(g1);
@@ -694,6 +701,8 @@ gsl_permutation * getIsomorphism(graph_t * g1, graph_t * g2){
     gsl_permutation_free(leftPerm);
     gsl_permutation_free(rightPerm);
     gsl_permutation_free(inverse);
+
+    delete_permutation(iso);
 
     return ret;
 }
