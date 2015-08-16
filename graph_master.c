@@ -58,8 +58,9 @@ save_graphs_file()
 
 
 void
-add_graph(graph_set * all_graphs, compress_graph* p)
+add_graph(graph_set ** all_graphs, compress_graph* p)
 {
+    //printf("Entering add_graph\n");
     graph_t decompressed_graph;
     comp_graph comp;
     memcpy(&comp.comp[0], &p->comp[0], sizeof(p->comp));
@@ -68,10 +69,10 @@ add_graph(graph_set * all_graphs, compress_graph* p)
     print_graph(&decompressed_graph);
     printf("\n");*/
 	if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
-	    printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
-	    delete_graph_set(all_graphs);
-	    all_graphs = graph_set_alloc();
-	    insert_graph(all_graphs, &decompressed_graph);
+	    //printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
+	    delete_graph_set(*all_graphs);
+	    *all_graphs = graph_set_alloc();
+	    insert_graph(*all_graphs, &decompressed_graph);
 	    /*del_graph_files();
        		graph_arr_size = 1;
        		cgraph_mast[0] = *((comp_graph*)p);
@@ -82,8 +83,12 @@ add_graph(graph_set * all_graphs, compress_graph* p)
 	    /*cgraph_mast[graph_arr_size ++] = *((comp_graph*)p);
 		if(graph_arr_size >= MAX_GRAPH_ARR)
 		save_graphs_file();*/
-	    if(!check_isomorphism(all_graphs, &decompressed_graph))
-		insert_graph(all_graphs, &decompressed_graph);
+	    //printf("Found optimal graph, checking isomorphism\n");
+	    if(!check_isomorphism(*all_graphs, &decompressed_graph)){
+		//printf("Graph found not isomorphic.  Inserting...\n");
+		insert_graph(*all_graphs, &decompressed_graph);
+		//printf("Done.\n");
+	    }
     	} else {
 		// discard
 	}
@@ -106,16 +111,18 @@ generate_graphs()
 
     graph_t * g = initial_graph();
 
-    graph_set * all_graphs = graph_set_alloc();
+    graph_set ** all_graphs = malloc(sizeof(graph_set *));
+    *all_graphs = graph_set_alloc();
 
     printf("Starting best average: %d\n", lowest_dist);
-    printf("num_procs: %d\n", num_procs);
 
     int i;
     for(; ; ){
 	if(no_more_graphs){
 	    printf("Printing out graphs...\n");
-	    print_graph_set_compressed(all_graphs);
+	    print_graph_set(*all_graphs);
+	    printf("\n");
+	    print_graph_set_compressed(*all_graphs);
 	    break;
 	}
 	/*if(ng >= MAX_GRAPH_ARR){
