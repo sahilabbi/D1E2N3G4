@@ -4,7 +4,7 @@
 
 #include "graph.h"
 
-#define COMPRESS_SIZE ((int)(NUM_NODES * NUM_NODES / sizeof(char)))
+#define COMPRESS_SIZE ((int)(NUM_NODES * NUM_NODES / 8))
 
 // graphs kept in memory or saved to disk in comp_graph format. since all will have same diameter and avg_distance, no need to save per graph 
 // this structure also used to send graph pairs across MPI channels for isomorphism checks
