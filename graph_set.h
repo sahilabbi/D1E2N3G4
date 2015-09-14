@@ -25,6 +25,7 @@ typedef struct
 graph_set * graph_set_alloc();
 void delete_graph_set(graph_set * gs);
 void print_graph_set(graph_set * gs);
+void print_graph_compressed(comp_graph * gs);
 void print_graph_set_compressed(graph_set * gs);
 
 //returns a pointer to the isospectral group containing eigenval

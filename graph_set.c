@@ -16,13 +16,18 @@ graph_set * graph_set_alloc(){
 
 void delete_graph_set(graph_set * gs){
     int i,j;
+    //printf("Deleting graph set %d.\ngs->size: %d\n", gs, gs->size);
+    //print_graph_set(gs);
     for(i = 0; (size_t) i < gs->size; i++){
+	//printf("Deleting group %d: %d\n", i, gs->iso_groups + i);
 	isospectral_group * currGroup = gs->iso_groups + i;
 	gsl_vector_free(currGroup->eigenvalues);
 	for(j = 0; (size_t) j < currGroup->num_graphs; j++)
-	    free(currGroup->graphs[i]);
+	    //printf("\tDeleting graph %d\n", j);
+	    free(currGroup->graphs[j]);
     }
-    free(gs->iso_groups);
+    //printf("Done deleting groups\n");
+    if(gs->iso_groups != NULL) free(gs->iso_groups);
     free(gs);
 }
 
@@ -194,7 +199,7 @@ static unsigned char flip_byte(unsigned char c){
     return x;
 }
 
-static void print_graph_compressed(comp_graph * cg){
+void print_graph_compressed(comp_graph * cg){
     int i;
     for(i = 0; i < COMPRESS_SIZE; i++){
 	printf("%02x", flip_byte(cg->comp[i]));
