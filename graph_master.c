@@ -66,33 +66,33 @@ add_graph(graph_set ** all_graphs, compress_graph* p)
     comp_graph comp;
     memcpy(&comp.comp[0], &p->comp[0], sizeof(p->comp));
     Compress_graph(&decompressed_graph, &comp, 0);
-    /*printf("Adding graph:\n");
-    print_graph(&decompressed_graph);
-    printf("\n");*/
-	if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
-	    //printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
-	    delete_graph_set(*all_graphs);
-	    *all_graphs = graph_set_alloc();
+    if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
+	printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
+	delete_graph_set(*all_graphs);
+	*all_graphs = graph_set_alloc();
+	insert_graph(*all_graphs, &decompressed_graph);
+	/*del_graph_files();
+	  graph_arr_size = 1;
+	  cgraph_mast[0] = *((comp_graph*)p);
+	  cgraph_mast[0] = *((comp_graph*)p);*/
+	lowest_diam = p->diameter;
+	lowest_dist= p->sum_dist;
+    } else if(p->diameter == lowest_diam && p->sum_dist == lowest_dist){
+	/*cgraph_mast[graph_arr_size ++] = *((comp_graph*)p);
+	  if(graph_arr_size >= MAX_GRAPH_ARR)
+	  save_graphs_file();*/
+	//printf("Found optimal graph, checking isomorphism\n");
+	if(!check_isomorphism(*all_graphs, &decompressed_graph)){
+	    //printf("Graph found not isomorphic.  Inserting...\n");
+	    printf("Adding graph: ");
+	    print_graph_compressed(&comp);
+	    printf("\n");
 	    insert_graph(*all_graphs, &decompressed_graph);
-	    /*del_graph_files();
-       		graph_arr_size = 1;
-       		cgraph_mast[0] = *((comp_graph*)p);
-        	cgraph_mast[0] = *((comp_graph*)p);*/
-       		lowest_diam = p->diameter;
-		lowest_dist= p->sum_dist;
-	} else if(p->diameter == lowest_diam && p->sum_dist == lowest_dist){
-	    /*cgraph_mast[graph_arr_size ++] = *((comp_graph*)p);
-		if(graph_arr_size >= MAX_GRAPH_ARR)
-		save_graphs_file();*/
-	    //printf("Found optimal graph, checking isomorphism\n");
-	    if(!check_isomorphism(*all_graphs, &decompressed_graph)){
-		//printf("Graph found not isomorphic.  Inserting...\n");
-		insert_graph(*all_graphs, &decompressed_graph);
-		//printf("Done.\n");
-	    }
-    	} else {
-		// discard
+	    //printf("Done.\n");
 	}
+    } else {
+	// discard
+    }
 }
 
 
@@ -110,7 +110,7 @@ generate_graphs()
     MPI_Status status;
 
 
-    graph_t * g = initial_graph();
+    graph_t * g = first_graph();
 
     graph_set ** all_graphs = malloc(sizeof(graph_set *));
     *all_graphs = graph_set_alloc();
@@ -123,7 +123,7 @@ generate_graphs()
 	    printf("Printing out graphs...\n");
 	    //print_graph_set(*all_graphs);
 	    //printf("\n");
-	    print_graph_set_compressed(*all_graphs);
+	    print_graph_set(*all_graphs);
 	    break;
 	}
 	/*if(ng >= MAX_GRAPH_ARR){
@@ -150,9 +150,10 @@ generate_graphs()
 	    ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, 
 			     MPI_ANY_SOURCE, MPI_ANY_TAG /*COMP_DIST_TAG*/,
 			     MPI_COMM_WORLD, &status);
-	    if(0 == (++recv_count) % 1000)
-		printf("%d AFT-mpi-recv %d Diam: %d Avg-Dist: %d %d\n",
-		       ng, i, cg.diameter, cg.sum_dist, recv_count);
+	    if(0 == (++recv_count) % 10000)
+		//printf("%d AFT-mpi-recv %d Diam: %d Avg-Dist: %d %d\n",
+		//ng, i, cg.diameter, cg.sum_dist, recv_count);
+		printf("Recieved %d graphs\n", recv_count);
 	    //printf("Received graph, Diameter %d, Sum dists %d\n", cg.diameter, cg.sum_dist);
 	    if(cg.diameter < lowest_diam || cg.diameter==lowest_diam){
 		add_graph(all_graphs, &cg);
@@ -177,11 +178,11 @@ process_distance_calcs()
       	MPI_Status status;
 
 	for( ; ; ){
-		// printf("process-dist: bef recv\n");
+	    //printf("process-dist: bef recv\n");
 		ierr = MPI_Recv (&cg, sizeof(compress_graph), MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		//If the program is over, end the program
 		if(status.MPI_TAG == END_TASK_TAG) break;
-		// printf("process-dist: aft recv\n");
+		//printf("process-dist: aft recv\n");
 		Compress_graph(&g, (comp_graph*)&cg, 0);
 		graph_info *info = getinfo((int*)g.adj, NUM_NODES);
 		//printf("Recieved Graph:\n");

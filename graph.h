@@ -22,6 +22,7 @@ bool increment_graph(graph_t * graph);
 bool is_regular(int * degree);
 
 graph_t * initial_graph();
+graph_t * first_graph();
 
 
 #endif
