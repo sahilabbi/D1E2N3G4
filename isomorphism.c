@@ -9,7 +9,7 @@
 #include <gsl/gsl_sort_vector.h>
 #include <gsl/gsl_permute_vector.h>
 
-#define EPSILON 0.0001
+#define EPSILON 0.0000001
 
 bool float_equals(double a, double b){
     double diff = a - b;
