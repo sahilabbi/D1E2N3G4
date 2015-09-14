@@ -127,7 +127,10 @@ generate_graphs()
 	    printf("Printing out graphs...\n");
 	    //print_graph_set(*all_graphs);
 	    //printf("\n");
-	    print_graph_set(*all_graphs);
+	    print_graph_set_compressed(*all_graphs);
+            delete_graph_set(*all_graphs);
+            free(all_graphs);
+            free(g);
 	    break;
 	}
 	/*if(ng >= MAX_GRAPH_ARR){
@@ -194,6 +197,7 @@ process_distance_calcs()
 		cg.diameter = info->diameter;
 		cg.sum_dist = info->sum_of_distances;
 		//printf("Diameter: %d Average: %d\n", (int)cg.diameter, cg.sum_dist);
+		delete_graph_info(info);
                 ierr = MPI_Send(&cg, sizeof(compress_graph), MPI_CHAR, 0, COMP_DIST_TAG, MPI_COMM_WORLD);
 	}
 
