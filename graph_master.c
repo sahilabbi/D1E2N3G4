@@ -66,6 +66,7 @@ add_graph(graph_set ** all_graphs, compress_graph* p)
     comp_graph comp;
     memcpy(&comp.comp[0], &p->comp[0], sizeof(p->comp));
     Compress_graph(&decompressed_graph, &comp, 0);
+
     if(p->diameter < lowest_diam || (p->diameter == lowest_diam && p->sum_dist < lowest_dist)){
 	printf("Found better graph: Diameter=%d, Distance Sum=%d\n", p->diameter, p->sum_dist);
 	delete_graph_set(*all_graphs);
